@@ -46,7 +46,7 @@ export function Home(p: Props) {
           <h1 className="text-[22px] font-semibold tracking-tight text-ink" title={p.project ?? undefined}>
             {p.project ? projectName(p.project) : 'Şimdi'}
           </h1>
-          <p className="mt-1 text-[13.5px] text-muted">
+          <p className="mt-1 text-[14px] text-muted">
             {counts.waiting > 0 && <span className="text-alert">{counts.waiting} oturum seni bekliyor · </span>}
             {counts.working} oturum çalışıyor · {counts.idle} oturum boşta
             {!attention && <span className="text-faint"> · bekleyen karar yok</span>}
@@ -124,9 +124,9 @@ function SessionCard({ s, st, now, waiting, project, onOpen }: { s: Session; st:
     <button
       onClick={onOpen}
       className={cn(
-        'enter block rounded-2xl bg-card p-4 text-left ring-line transition-[background-color,transform] duration-150 hover:-translate-y-px hover:bg-raise/60',
+        'enter block rounded-2xl bg-card p-4 text-left ring-card transition-[background-color,transform] duration-150 hover:-translate-y-px hover:bg-raise/60',
         st === 'waiting' && 'attention',
-        st === 'working' && 'shadow-[inset_0_0_0_1px_rgba(77,141,255,.3)]'
+        st === 'working' && 'ring-run'
       )}
     >
       <div className="flex items-center gap-2 text-[12px]">
@@ -136,8 +136,8 @@ function SessionCard({ s, st, now, waiting, project, onOpen }: { s: Session; st:
         <span className="ml-auto tabular-nums text-faint">{duration(now - s.startedAt)}</span>
       </div>
       <p className={cn('mt-1 text-[12px] font-medium', st === 'waiting' ? 'text-alert' : 'text-run')}>{st === 'waiting' ? `${waiting} karar seni bekliyor` : STATE_LABEL[st]}</p>
-      <p className="mt-2 truncate font-mono text-[12.5px] text-ink" title={doing ?? undefined}>
-        <span className="mr-1.5 font-sans text-[11.5px] text-faint">şu an</span>
+      <p className="mt-2 truncate font-mono text-[13px] text-ink" title={doing ?? undefined}>
+        <span className="mr-1.5 font-sans text-[12px] text-faint">şu an</span>
         {doing || 'düşünüyor…'}
       </p>
       <div className="mt-3 flex items-center gap-3 text-[12px] text-muted">
@@ -177,12 +177,12 @@ function SessionRow({ s, st, now, activity, project, onOpen }: { s: Session; st:
     <li className="border-t border-line first:border-t-0">
       <button onClick={onOpen} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-tile/60">
         <span className={cn('size-1.5 shrink-0 rounded-full', STATE_DOT[st])} />
-        {project && <span className="max-w-[160px] shrink-0 truncate text-[12.5px] font-medium text-ink">{project}</span>}
+        {project && <span className="max-w-[160px] shrink-0 truncate text-[13px] font-medium text-ink">{project}</span>}
         <span className="shrink-0 font-mono text-[12px] text-ink">#{s.id.slice(0, 4)}</span>
         <span className="shrink-0 text-[12px] text-muted">
           {STATE_LABEL[st]} · {ago(s.lastEventAt, now)}
         </span>
-        <span className="min-w-0 flex-1 truncate text-[12.5px] text-faint">{last}</span>
+        <span className="min-w-0 flex-1 truncate text-[13px] text-faint">{last}</span>
         <span className="shrink-0 text-[12px] tabular-nums text-muted">{usd(sessionCost(s))}</span>
       </button>
     </li>

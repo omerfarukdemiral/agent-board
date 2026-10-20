@@ -53,7 +53,7 @@ function Columns({ cards, multiSession, now, onOpen }: Omit<Props, 'grouping'>) 
           const list = cards.filter((x) => x.column === c.id).sort(order(c.id));
           const shown = c.id === 'done' && !showAllDone ? list.slice(0, DONE_LIMIT) : list;
           return (
-            <section key={c.id} className={cn('rounded-2xl p-2 sm:min-h-[200px]', !list.length && 'hidden sm:block', c.id === 'review' && list.length ? 'bg-alert/[0.05] shadow-[inset_0_0_0_1px_rgba(251,138,60,.18)]' : 'bg-white/[0.015]')}>
+            <section key={c.id} className={cn('rounded-2xl p-2 sm:min-h-[200px]', !list.length && 'hidden sm:block', c.id === 'review' && list.length ? 'bg-alert/[0.05] ring-alert' : 'bg-white/[0.015]')}>
               <ColumnHead c={c} count={list.length} />
               <div className="space-y-1.5">
                 {shown.map((card) => (
@@ -117,7 +117,7 @@ function Lanes({ cards, multiSession, now, onOpen }: Omit<Props, 'grouping'>) {
                           {agentId === 'main' ? <Network className="size-3.5" /> : <Bot className="size-3.5" />}
                         </span>
                         <span className="min-w-0">
-                          <span className="line-clamp-2 text-[12.5px] font-medium leading-[17px] text-ink">{agentId ? agentName(s, agentId) : 'Atanmamış'}</span>
+                          <span className="line-clamp-2 text-[13px] font-medium leading-[17px] text-ink">{agentId ? agentName(s, agentId) : 'Atanmamış'}</span>
                           <span className="mt-0.5 flex min-w-0 items-center gap-1.5 truncate whitespace-nowrap text-[11px] text-faint">
                             {agent && <span className={cn('size-1.5 shrink-0 rounded-full', agent.status === 'running' ? 'bg-run pulse-dot' : agent.status === 'error' ? 'bg-err' : 'bg-ok')} />}
                             {agent ? (agentId === 'main' ? 'orkestratör' : agent.type) : 'görev'}
@@ -152,12 +152,12 @@ function Card({ card, multiSession, now, onOpen, showAgent }: { card: FlowCard; 
     <button
       onClick={() => onOpen(card.session.id, card.agentId)}
       className={cn(
-        'enter relative block w-full overflow-hidden rounded-xl bg-card py-2 pl-3.5 pr-2.5 text-left ring-line transition-[background-color,transform] duration-150 hover:-translate-y-px hover:bg-raise/70',
+        'enter relative block w-full overflow-hidden rounded-xl bg-card py-2 pl-3.5 pr-2.5 text-left ring-card transition-[background-color,transform] duration-150 hover:-translate-y-px hover:bg-raise/70',
         card.column === 'review' && 'attention'
       )}
     >
       <span className={cn('absolute inset-y-0 left-0 w-[3px]', COL_TONE[card.column], card.column === 'done' && 'opacity-50', card.column === 'doing' && 'pulse-dot')} aria-hidden="true" />
-      <span className={cn('line-clamp-2 text-[12.5px] leading-[18px]', done ? 'text-muted' : 'text-ink', card.error && 'text-err')}>
+      <span className={cn('line-clamp-2 text-[13px] leading-[18px]', done ? 'text-muted' : 'text-ink', card.error && 'text-err')}>
         {(card.taskId || multiSession) && (
           <span className="mr-1 font-mono text-[11px] text-faint">
             {multiSession && `${card.session.id.slice(0, 4)}`}
@@ -183,7 +183,7 @@ function Card({ card, multiSession, now, onOpen, showAgent }: { card: FlowCard; 
           ) : (
             <span className="text-faint">atanmamış</span>
           ))}
-        {card.kind === 'agent' && <span className="shrink-0 rounded bg-tile px-1 text-[10px]">agent işi</span>}
+        {card.kind === 'agent' && <span className="shrink-0 rounded bg-tile px-1 text-[11px]">agent işi</span>}
         <span className="ml-auto shrink-0">{ago(card.since, now)}</span>
       </span>
     </button>

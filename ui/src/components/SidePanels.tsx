@@ -13,10 +13,10 @@ export function BackgroundPanel({ session }: { session: Session }) {
         Arka plan işleri
         <span className="ml-auto font-mono text-xs text-muted">{items.length}</span>
       </header>
-      <ul className="space-y-1 rounded-2xl bg-card p-2 ring-line">
+      <ul className="space-y-1 rounded-2xl bg-card p-2 ring-card">
         {items.map((b, i) => (
           <li key={String(b.id ?? i)} className="flex items-center gap-2 rounded-lg px-2 py-1.5">
-            <span className="rounded-md bg-tile px-1.5 py-0.5 font-mono text-[10.5px] uppercase text-muted ring-line">{b.type || 'task'}</span>
+            <span className="rounded-md bg-tile px-1.5 py-0.5 font-mono text-[11px] uppercase text-muted ring-line">{b.type || 'task'}</span>
             <span className="truncate text-[13px] text-ink">{String(b.name || b.description || b.id || '')}</span>
             {b.status != null && <span className="ml-auto shrink-0 text-[11px] text-muted">{String(b.status)}</span>}
           </li>

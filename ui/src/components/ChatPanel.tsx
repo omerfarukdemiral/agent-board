@@ -75,7 +75,7 @@ export function ChatPanel({ sessions, sessionId, onSession, activity, channelPid
       </header>
 
       <div ref={scroller} className="scroll-thin min-h-0 flex-1 space-y-2.5 overflow-y-auto px-3 py-3">
-        {items.length === 0 && <p className="py-6 text-center text-[12.5px] text-faint">Bu oturumda henüz konuşma yok.</p>}
+        {items.length === 0 && <p className="py-6 text-center text-[13px] text-faint">Bu oturumda henüz konuşma yok.</p>}
         {items.map((it) => (
           <Bubble key={it.id} it={it} />
         ))}
@@ -111,10 +111,10 @@ function Bubble({ it }: { it: ActivityItem }) {
       <div
         className={cn(
           'max-w-[88%] rounded-2xl px-3 py-2 text-[13px] leading-5 [overflow-wrap:anywhere]',
-          mine ? 'rounded-br-md bg-run/15 text-ink shadow-[inset_0_0_0_1px_rgba(77,141,255,.25)]' : 'rounded-bl-md bg-card text-text ring-line'
+          mine ? 'rounded-br-md bg-run/15 text-ink ring-run' : 'rounded-bl-md bg-card text-text ring-card'
         )}
       >
-        <div className={cn('mb-0.5 flex items-center gap-1 text-[10.5px]', mine ? 'text-run' : 'text-faint')}>
+        <div className={cn('mb-0.5 flex items-center gap-1 text-[11px]', mine ? 'text-run' : 'text-faint')}>
           {it.kind === 'board-message' ? <Radio className="size-3" /> : mine ? <User className="size-3" /> : <Bot className="size-3" />}
           {it.kind === 'board-message' ? 'sen · board' : it.kind === 'prompt' ? 'sen · terminal' : it.kind === 'board-reply' ? 'Claude' : 'Claude · terminal'}
         </div>
@@ -140,7 +140,7 @@ function Composer({ disabled, hint, onSend }: { disabled: boolean; hint: string 
   };
   return (
     <div className="border-t border-line p-2">
-      <div className="flex items-end gap-2 rounded-xl bg-card p-1.5 ring-line focus-within:shadow-[inset_0_0_0_1px_rgba(255,255,255,.22)]">
+      <div className="flex items-end gap-2 rounded-xl bg-card p-1.5 ring-card ring-focus">
         <textarea
           value={text}
           disabled={disabled}

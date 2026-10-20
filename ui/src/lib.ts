@@ -59,7 +59,7 @@ export function childrenOf(s: Session, id: string): Agent[] {
 export const displayName = (a: Agent) => (a.description || a.type).replace(/^#\d+\s*[:·-]?\s*/, '');
 
 export function agentName(s: Session | undefined, id: string) {
-  if (id === 'main') return 'Orchestrator';
+  if (id === 'main') return 'Orkestratör';
   const a = s?.agents[id];
   return a ? displayName(a) : id.slice(0, 8);
 }

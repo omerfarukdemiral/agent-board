@@ -1,25 +1,74 @@
 @import 'tailwindcss';
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
 
-/* Tokens follow affectUI's dark palette so our own components sit next to the vendored ones. */
-@theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
-  --color-page: #0f0f11;
-  --color-tray: #161618;
-  --color-tile: #1d1d20;
-  --color-card: #232326;
-  --color-raise: #2a2a2d;
-  --color-line: rgba(255, 255, 255, 0.08);
-  --color-line-strong: rgba(255, 255, 255, 0.14);
-  --color-ink: #ededed;
-  --color-text: #c4c4c4;
-  --color-muted: #8f8f8f;
-  --color-faint: #6b6b70;
-  --color-run: #4d8dff;
-  --color-ok: #3fbf74;
-  --color-err: #ff7b72;
-  --color-alert: #fb8a3c;
+/* Same family and palette as the landing page (IBM Plex, fog and paper). Light is the default;
+   .dark on <html> switches every token, and affectUI components follow the same class. */
+@theme inline {
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --color-page: var(--page);
+  --color-tray: var(--tray);
+  --color-tile: var(--tile);
+  --color-card: var(--card);
+  --color-raise: var(--raise);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-run: var(--run);
+  --color-ok: var(--ok);
+  --color-err: var(--err);
+  --color-alert: var(--alert);
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root {
+  color-scheme: light;
+  --page: #edf0f4;
+  --tray: #f4f6f8;
+  --tile: #e7ebf0;
+  --card: #ffffff;
+  --raise: #f7f8fa;
+  --line: rgba(21, 23, 27, 0.09);
+  --line-strong: rgba(21, 23, 27, 0.18);
+  --ink: #15171b;
+  --text: #333840;
+  --muted: #5d636d;
+  --faint: #8a909a;
+  --run: #2f6fe4;
+  --ok: #23935a;
+  --err: #d6453a;
+  --alert: #e0661c;
+  --grid-dot: rgba(21, 23, 27, 0.08);
+  --edge: rgba(21, 23, 27, 0.16);
+  --lift: 0 1px 2px rgba(21, 23, 27, 0.05), 0 2px 8px -2px rgba(21, 23, 27, 0.06);
+}
+.dark {
+  color-scheme: dark;
+  --page: #0f0f11;
+  --tray: #161618;
+  --tile: #1d1d20;
+  --card: #232326;
+  --raise: #2a2a2d;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --ink: #ededed;
+  --text: #c4c4c4;
+  --muted: #8f8f8f;
+  --faint: #6b6b70;
+  --run: #4d8dff;
+  --ok: #3fbf74;
+  --err: #ff7b72;
+  --alert: #fb8a3c;
+  --grid-dot: rgba(255, 255, 255, 0.06);
+  --edge: rgba(255, 255, 255, 0.14);
+  --lift: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 html,
@@ -28,20 +77,43 @@ body,
   min-height: 100%;
 }
 body {
-  background: var(--color-page);
-  color: var(--color-ink);
+  background: var(--page);
+  color: var(--ink);
   font-family: var(--font-sans);
-  letter-spacing: -0.006em;
+  font-size: 14px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'kern';
 }
 
 /* affectUI draws borders as inset shadows */
 .ring-line {
-  box-shadow: inset 0 0 0 1px var(--color-line);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 .ring-strong {
-  box-shadow: inset 0 0 0 1px var(--color-line-strong);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
 }
+/* cards sit on the page with a hairline and, in light mode, a soft lift */
+.ring-card {
+  box-shadow: inset 0 0 0 1px var(--line), var(--lift);
+}
+/* state outlines, shared by cards, chat bubbles and the canvas */
+.ring-run {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--run) 40%, transparent), var(--lift);
+}
+.ring-err {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--err) 45%, transparent), var(--lift);
+}
+.ring-alert {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--alert) 40%, transparent);
+}
+.ring-selected {
+  box-shadow: inset 0 0 0 1.5px var(--ink), var(--lift);
+}
+.ring-focus:focus-within {
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
 .btn {
   height: 30px;
   padding: 0 12px;
@@ -49,13 +121,13 @@ body {
   font-size: 13px;
   font-weight: 500;
   line-height: 20px;
-  color: var(--color-ink);
-  background: var(--color-raise);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 1px 2px rgba(0, 0, 0, 0.4);
+  color: var(--ink);
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--line-strong), 0 1px 2px rgba(21, 23, 27, 0.06);
   transition: background-color 160ms ease, transform 160ms ease;
 }
 .btn:hover {
-  background: #313135;
+  background: var(--tile);
 }
 .btn:active {
   transform: scale(0.98);
@@ -65,18 +137,18 @@ body {
   pointer-events: none;
 }
 .btn-primary {
-  color: #121213;
-  background: linear-gradient(#f4f4f5, #e4e4e7);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 #fff;
+  color: var(--card);
+  background: var(--ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 .btn-primary:hover {
-  background: linear-gradient(#fff, #ececef);
+  background: color-mix(in srgb, var(--ink) 86%, var(--card));
 }
 .btn-danger {
-  color: var(--color-err);
+  color: var(--err);
 }
 :focus-visible {
-  outline: 2px solid var(--color-run);
+  outline: 2px solid var(--run);
   outline-offset: 2px;
 }
 
@@ -100,23 +172,33 @@ body {
 @keyframes attention {
   0%,
   100% {
-    box-shadow: inset 0 0 0 1px rgba(251, 138, 60, 0.45);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--alert) 50%, transparent);
   }
   50% {
-    box-shadow: inset 0 0 0 1px rgba(251, 138, 60, 0.9), 0 0 0 4px rgba(251, 138, 60, 0.12);
+    box-shadow: inset 0 0 0 1px var(--alert), 0 0 0 4px color-mix(in srgb, var(--alert) 14%, transparent);
   }
 }
 .attention {
   animation: attention 1.6s ease-in-out infinite;
 }
+/* the edge from the orchestrator to a working agent drifts like a stream */
+@keyframes flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+.edge-flow {
+  animation: flow 1.4s linear infinite;
+}
 .scroll-thin {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  scrollbar-color: var(--line-strong) transparent;
 }
 @media (prefers-reduced-motion: reduce) {
   .enter,
   .pulse-dot,
-  .attention {
+  .attention,
+  .edge-flow {
     animation: none;
   }
 }

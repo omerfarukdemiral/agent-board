@@ -41,7 +41,7 @@ export function Md({ text }: { text: string }) {
     <div className="space-y-1.5">
       {parse(text).map((b, i) =>
         b.kind === 'code' ? (
-          <pre key={i} className="scroll-thin overflow-x-auto rounded-lg bg-tile px-2.5 py-2 font-mono text-[11.5px] leading-[18px] text-ink ring-line">
+          <pre key={i} className="scroll-thin overflow-x-auto rounded-lg bg-tile px-2.5 py-2 font-mono text-[12px] leading-[18px] text-ink ring-line">
             {b.lines.join('\n')}
           </pre>
         ) : b.kind === 'ul' ? (

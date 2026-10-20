@@ -149,7 +149,7 @@ function Single({ it, session }: { it: Item; session: Session }) {
       return (
         <div className="enter flex justify-end">
           <div className="max-w-[85%] rounded-2xl rounded-br-md bg-raise px-3.5 py-2 text-[13px] leading-5 text-ink ring-line [overflow-wrap:anywhere]">
-            <div className="mb-0.5 flex items-center gap-1 text-[10.5px] text-faint">
+            <div className="mb-0.5 flex items-center gap-1 text-[11px] text-faint">
               <User className="size-3" /> sen
             </div>
             {it.summary}
@@ -159,8 +159,8 @@ function Single({ it, session }: { it: Item; session: Session }) {
     case 'board-message':
       return (
         <div className="enter flex justify-end">
-          <div className="max-w-[85%] rounded-2xl rounded-br-md bg-run/15 px-3.5 py-2 text-[13px] leading-5 text-ink shadow-[inset_0_0_0_1px_rgba(77,141,255,.3)] [overflow-wrap:anywhere]">
-            <div className="mb-0.5 flex items-center gap-1 text-[10.5px] text-run">
+          <div className="max-w-[85%] rounded-2xl rounded-br-md bg-run/15 px-3.5 py-2 text-[13px] leading-5 text-ink ring-run [overflow-wrap:anywhere]">
+            <div className="mb-0.5 flex items-center gap-1 text-[11px] text-run">
               <Radio className="size-3" /> sen · board
             </div>
             <span className="whitespace-pre-wrap">{it.summary}</span>
@@ -170,8 +170,8 @@ function Single({ it, session }: { it: Item; session: Session }) {
     case 'board-reply':
       return (
         <div className="enter flex justify-start">
-          <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-card px-3.5 py-2 text-[13px] leading-5 text-ink ring-line [overflow-wrap:anywhere]">
-            <div className="mb-0.5 flex items-center gap-1 text-[10.5px] text-faint">
+          <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-card px-3.5 py-2 text-[13px] leading-5 text-ink ring-card [overflow-wrap:anywhere]">
+            <div className="mb-0.5 flex items-center gap-1 text-[11px] text-faint">
               <Bot className="size-3" /> Claude · board'a cevap
             </div>
             <Md text={String(it.summary || '')} />

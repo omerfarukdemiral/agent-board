@@ -56,7 +56,7 @@ export function ProjectInbox({ sessions, requests, now, channelPids, multiSessio
       </header>
 
       {pending.length > 0 && (
-        <div className="mb-1.5 overflow-hidden rounded-2xl bg-card ring-line">
+        <div className="mb-1.5 overflow-hidden rounded-2xl bg-card ring-card">
           {pending.map((r, i) => (
             <RequestCard key={r.id} r={r} session={bySession[r.sessionId]} now={now} first={i === 0} onDecide={onDecide} onOpenSession={onOpenSession} />
           ))}
@@ -82,7 +82,7 @@ export function ProjectInbox({ sessions, requests, now, channelPids, multiSessio
 
       {(read.length > 0 || recentDecisions.length > 0) && (
         <div className="px-3 pb-1.5 pt-1">
-          <button className="text-[11.5px] text-faint hover:text-ink" onClick={() => setShowRead((v) => !v)}>
+          <button className="text-[12px] text-faint hover:text-ink" onClick={() => setShowRead((v) => !v)}>
             {showRead ? 'Geçmişi gizle' : `Geçmiş · ${read.length + recentDecisions.length}`}
           </button>
           {showRead && (
@@ -107,7 +107,7 @@ export function KindChip({ kind, small }: { kind: InboxItem['kind']; small?: boo
   const k = KIND[kind] ?? KIND.info;
   const Icon = k.icon;
   return (
-    <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-md font-medium', small ? 'px-1 text-[10px]' : 'px-1.5 py-0.5 text-[11px]', k.cls)}>
+    <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-md font-medium', small ? 'px-1 text-[11px]' : 'px-1.5 py-0.5 text-[11px]', k.cls)}>
       <Icon className={small ? 'size-3' : 'size-3.5'} />
       {k.label}
     </span>
@@ -131,7 +131,7 @@ export function ItemCard({ e, now, multiSession, canReply, onAck, onReply }: { e
   };
 
   return (
-    <article className={cn('enter rounded-2xl bg-card px-3.5 py-3 ring-line', item.kind === 'decision' && 'shadow-[inset_0_0_0_1px_rgba(251,138,60,.35)]')}>
+    <article className={cn('enter rounded-2xl bg-card px-3.5 py-3 ring-card', item.kind === 'decision' && 'ring-alert')}>
       <div className="flex items-center gap-2 text-[11px] text-faint">
         <KindChip kind={item.kind} />
         <span className="truncate">{agentName(session, item.agentId)}</span>
@@ -139,14 +139,14 @@ export function ItemCard({ e, now, multiSession, canReply, onAck, onReply }: { e
         {multiSession && <span className="font-mono">#{session.id.slice(0, 4)}</span>}
         <span className="ml-auto shrink-0">{ago(item.createdAt, now)}</span>
       </div>
-      <h4 className="mt-1.5 text-[13.5px] font-medium leading-5 text-ink">{item.title}</h4>
+      <h4 className="mt-1.5 text-[14px] font-medium leading-5 text-ink">{item.title}</h4>
       {item.body && (
-        <div className={cn('mt-1 text-[12.5px] leading-[19px] text-text', !expanded && 'line-clamp-4')}>
+        <div className={cn('mt-1 text-[13px] leading-[19px] text-text', !expanded && 'line-clamp-4')}>
           <Md text={item.body} />
         </div>
       )}
       {long && (
-        <button className="mt-1 text-[11.5px] text-faint hover:text-ink" onClick={() => setExpanded((v) => !v)}>
+        <button className="mt-1 text-[12px] text-faint hover:text-ink" onClick={() => setExpanded((v) => !v)}>
           {expanded ? 'Daralt' : 'Devamını oku'}
         </button>
       )}

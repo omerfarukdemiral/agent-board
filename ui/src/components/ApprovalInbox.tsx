@@ -133,15 +133,15 @@ function PermissionPreview({ r }: { r: ApprovalRequest }) {
   return (
     <>
       <p className="mt-1.5 text-sm font-medium text-ink">
-        <span className="font-mono text-[12.5px] text-alert">{r.toolName}</span> <span className="break-all">{p.title}</span>
+        <span className="font-mono text-[13px] text-alert">{r.toolName}</span> <span className="break-all">{p.title}</span>
       </p>
       {p.body && (
-        <pre className="scroll-thin mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-tile p-2.5 font-mono text-[11.5px] leading-[18px] text-text ring-line">
+        <pre className="scroll-thin mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-tile p-2.5 font-mono text-[12px] leading-[18px] text-text ring-line">
           {lines(p.body).join('\n')}
         </pre>
       )}
       {p.diff && (
-        <pre className="scroll-thin mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-tile py-2 font-mono text-[11.5px] leading-[18px] ring-line">
+        <pre className="scroll-thin mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-tile py-2 font-mono text-[12px] leading-[18px] ring-line">
           {lines(p.diff.old, 8).map((l, i) => (
             <div key={`o${i}`} className="bg-err/10 px-2.5 text-err">
               - {l}

@@ -1,7 +1,7 @@
 // Left menu (projects → sessions) next to one main area: Şimdi, a project, or a session.
 // The URL carries where you are (?s=<session> or ?p=<project>), so back/forward and links work.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bell, Menu, Network, X } from 'lucide-react';
+import { Bell, Menu, Moon, Network, Sun, X } from 'lucide-react';
 import { requestLabel, cn, projectName } from './lib';
 import type { ApprovalRequest } from './types';
 import { useAttention, useBoard, useNow } from './useBoard';
@@ -22,6 +22,13 @@ export default function App() {
   const { sessions, activity, requests, connected, channelPids, decide, sendMessage, ackInbox } = useBoard();
   const [route, setRoute] = useState<Route>(readRoute);
   const [menuOpen, setMenuOpen] = useState(false); // phones: the menu is a drawer
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+    try {
+      localStorage.setItem('ab:theme', dark ? 'dark' : 'light');
+    } catch {}
+  }, [dark]);
   const [notifyPerm, setNotifyPerm] = useState(() => ('Notification' in window ? Notification.permission : 'denied'));
 
   const go = useCallback((next: Route) => {
@@ -64,14 +71,14 @@ export default function App() {
   const home = () => go({ session: null, project: null });
 
   return (
-    <div className="dark min-h-screen">
+    <div className="min-h-screen">
       <header className="sticky top-0 z-30 border-b border-line bg-page/85 backdrop-blur-md">
         <div className="flex items-center gap-3 px-4 py-2.5">
           <button onClick={() => setMenuOpen((v) => !v)} className="grid size-7 place-items-center rounded-md text-muted hover:bg-tile hover:text-ink lg:hidden" aria-label="Menü">
             {menuOpen ? <X className="size-4" /> : <Menu className="size-4" />}
           </button>
           <button onClick={home} className="inline-flex shrink-0 items-center gap-2 text-[13px] font-semibold text-ink">
-            <span className="grid size-6 place-items-center rounded-md bg-tile ring-line">
+            <span className="grid size-6 place-items-center rounded-md bg-ink text-card">
               <Network className="size-3.5" />
             </span>
             agent-board
@@ -83,6 +90,9 @@ export default function App() {
             </button>
           )}
           <span className={cn('size-2 shrink-0 rounded-full', connected ? 'bg-ok' : 'bg-err pulse-dot')} title={connected ? 'canlı akış bağlı' : 'sunucuya bağlanılamıyor'} />
+          <button className="grid size-7 shrink-0 place-items-center rounded-md text-muted hover:bg-tile hover:text-ink" onClick={() => setDark((v) => !v)} title={dark ? 'Açık tema' : 'Koyu tema'} aria-label={dark ? 'Açık tema' : 'Koyu tema'}>
+            {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+          </button>
           {notifyPerm === 'default' && (
             <button className="grid size-7 shrink-0 place-items-center rounded-md text-muted hover:bg-tile hover:text-ink" onClick={() => Notification.requestPermission().then(setNotifyPerm)} title="Karar beklenince masaüstü bildirimi gönder">
               <Bell className="size-4" />

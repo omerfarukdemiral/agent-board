@@ -57,14 +57,14 @@ export function Sidebar(p: Props) {
         {waiting > 0 ? <Badge tone="alert">{waiting}</Badge> : working > 0 ? <Badge tone="run">{working}</Badge> : null}
       </button>
 
-      <p className="px-2 pb-1 pt-4 text-[11.5px] text-faint">Projeler</p>
+      <p className="px-2 pb-1 pt-4 text-[12px] text-faint">Projeler</p>
       {active.map((pr) => (
         <ProjectItem key={pr.cwd} pr={pr} state={state} lively={lively} startOpen={busy(pr)} {...p} />
       ))}
 
       {quiet.length > 0 && (
         <>
-          <button onClick={() => setShowQuiet(!showQuiet)} className="flex w-full items-center gap-1.5 px-2 pb-1 pt-4 text-left text-[11.5px] text-faint hover:text-ink">
+          <button onClick={() => setShowQuiet(!showQuiet)} className="flex w-full items-center gap-1.5 px-2 pb-1 pt-4 text-left text-[12px] text-faint hover:text-ink">
             <ChevronRight className={cn('size-3.5 transition-transform', showQuiet && 'rotate-90')} />
             Sessiz ve kapanmış · {quiet.length}
           </button>
@@ -108,7 +108,7 @@ function ProjectItem({ pr, state, lively, startOpen, current, waitingBySession, 
                   <span className={cn('size-1.5 shrink-0 rounded-full', STATE_DOT[st])} />
                   <span className="font-mono text-[11px] text-ink">#{s.id.slice(0, 4)}</span>
                   <span className={cn('truncate', st === 'waiting' ? 'text-alert' : st === 'working' ? 'text-run' : '')}>{STATE_LABEL[st]}</span>
-                  <span className="ml-auto shrink-0 text-[10.5px] text-faint">{ago(s.lastEventAt, now)}</span>
+                  <span className="ml-auto shrink-0 text-[11px] text-faint">{ago(s.lastEventAt, now)}</span>
                 </button>
               </li>
             );
@@ -127,5 +127,5 @@ function ProjectItem({ pr, state, lively, startOpen, current, waitingBySession, 
 }
 
 function Badge({ tone, children }: { tone: 'alert' | 'run'; children: React.ReactNode }) {
-  return <span className={cn('rounded-full px-1.5 text-[10.5px] font-medium tabular-nums', tone === 'alert' ? 'bg-alert/15 text-alert' : 'bg-run/15 text-run')}>{children}</span>;
+  return <span className={cn('rounded-full px-1.5 text-[11px] font-medium tabular-nums', tone === 'alert' ? 'bg-alert/15 text-alert' : 'bg-run/15 text-run')}>{children}</span>;
 }

@@ -61,7 +61,7 @@ export function SessionPage(p: Props) {
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
       <main className="flex min-w-0 flex-col gap-4">
         <header>
-          <nav className="flex items-center gap-1.5 text-[12.5px] text-muted">
+          <nav className="flex items-center gap-1.5 text-[13px] text-muted">
             <button onClick={() => p.onProject(s.cwd)} className="hover:text-ink" title={s.cwd}>
               {projectName(s.cwd)}
             </button>
@@ -75,7 +75,7 @@ export function SessionPage(p: Props) {
           </nav>
 
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className={cn('inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[12.5px] font-medium', st === 'waiting' ? 'bg-alert/12 text-alert' : st === 'working' ? 'bg-run/12 text-run' : 'bg-tile text-muted')}>
+            <span className={cn('inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[13px] font-medium', st === 'waiting' ? 'bg-alert/12 text-alert' : st === 'working' ? 'bg-run/12 text-run' : 'bg-tile text-muted')}>
               <span className={cn('size-2 rounded-full', STATE_DOT[st])} />
               {STATE_LABEL[st]}
             </span>
@@ -90,7 +90,7 @@ export function SessionPage(p: Props) {
               )}
             </h1>
           </div>
-          <p className="mt-2 text-[12.5px] tabular-nums text-muted">
+          <p className="mt-2 text-[13px] tabular-nums text-muted">
             1 orkestratör · {subs} subagent{running > 0 && <span className="text-run"> ({running} çalışıyor)</span>}
             {tasks.length > 0 && ` · ${tasks.filter((t) => t.status === 'completed').length}/${tasks.length} görev`} · {duration((s.endedAt ?? p.now) - s.startedAt)} ·{' '}
             <span className="text-ink" title="API eşdeğeri; abonelikte gerçek fatura değildir">

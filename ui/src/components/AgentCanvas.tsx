@@ -1,43 +1,96 @@
-// Orchestration canvas: the orchestrator in the middle, subagents on a ring around it, nested agents
-// further out in their parent's direction. Pan by dragging or two-finger scroll, zoom with pinch,
+// Orchestration canvas as a swarm: the orchestrator in the middle, agents held to their parent by
+// springs and kept apart by collisions. Working agents stay close, finished ones drift outwards,
+// nested agents cluster around their parent. Pan by dragging or two-finger scroll, zoom with pinch,
 // Ctrl/⌘ + wheel, double-click or the buttons; "Sığdır" fits everything.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Maximize2, Minimize2, Minus, Plus, Scan } from 'lucide-react';
 import { childrenOf, cn, displayName, usd } from '../lib';
 import type { Agent, Session } from '../types';
-import { AgentCard } from './AgentCard';
+import { AGENT_STATE, AgentCard, agentState } from './AgentCard';
 
 type Props = { session: Session; now: number; waitingBy: Record<string, number>; selected: string | null; onSelect: (id: string | null) => void };
-type Node = { agent: Agent; x: number; y: number; parent: string | null; depth: number };
+type Node = { agent: Agent; x: number; y: number; w: number; h: number; parent: string | null; depth: number; live: boolean };
 
-const W = 248; // card width (15.5rem)
-const H = 92; // card height, approx.
-const GAP = 290; // arc length kept per card along a ring
-const SQUASH = 0.55; // rings are ellipses: wide cards need more room sideways than up and down
+const W = 256; // card width (16rem)
+const MAIN_W = 288; // orchestrator card (18rem)
+const PAD = 46; // air between cards
+const SY = 1.8; // cards are wide: vertical distance counts more than horizontal
 const MIN_K = 0.15;
 const MINI_BELOW = 0.55; // below this zoom full cards turn into labels that stay readable
 const MAX_K = 1.6;
+const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
-// radial layout: ring 1 sized to fit its agents, deeper rings step outwards around their parent
-function layout(session: Session): Node[] {
+// a stable pseudo-random number per agent, so the swarm keeps its shape between renders
+const hash = (s: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return ((h >>> 0) % 1000) / 1000;
+};
+
+function layout(session: Session, waitingBy: Record<string, number>): Node[] {
   const main = session.agents.main;
   if (!main) return [];
-  const nodes: Node[] = [{ agent: main, x: 0, y: 0, parent: null, depth: 0 }];
-  const first = childrenOf(session, 'main');
-  if (!first.length) return nodes;
-  const perim = (rx: number) => 2 * Math.PI * Math.sqrt((rx * rx + (rx * SQUASH) ** 2) / 2);
-  let rx = 340;
-  while (perim(rx) < first.length * GAP) rx += 40;
-  const place = (a: Agent, angle: number, depth: number, parent: string, radius: number) => {
-    nodes.push({ agent: a, x: Math.cos(angle) * radius, y: Math.sin(angle) * radius * SQUASH, parent, depth });
-    const kids = depth < 6 ? childrenOf(session, a.id) : [];
-    if (!kids.length) return;
-    const outer = radius + 300;
-    const step = GAP / outer;
-    kids.forEach((k, i) => place(k, angle + (i - (kids.length - 1) / 2) * step, depth + 1, a.id, outer));
+  const ended = !!session.endedAt;
+  const isLive = (a: Agent) => {
+    const st = agentState(a, ended, waitingBy[a.id] || 0);
+    return st === 'running' || st === 'waiting';
   };
-  // the first subagent sits straight below the orchestrator, the rest follow clockwise
-  first.forEach((a, i) => place(a, Math.PI / 2 + (i * 2 * Math.PI) / first.length, 1, 'main', rx));
+  const nodes: Node[] = [{ agent: main, x: 0, y: 0, w: MAIN_W, h: isLive(main) ? 100 : 66, parent: null, depth: 0, live: isLive(main) }];
+  const byId: Record<string, Node> = { main: nodes[0] };
+
+  // seed: a sunflower spiral around each parent, nested agents pointing away from the middle
+  const grow = (p: Node, depth: number) => {
+    const kids = childrenOf(session, p.agent.id);
+    const away = Math.atan2(p.y, p.x);
+    kids.forEach((a, i) => {
+      const live = isLive(a);
+      const angle = depth === 1 ? i * GOLDEN + hash(a.id) * 0.6 : away + (i - (kids.length - 1) / 2) * 0.7;
+      const r = (depth === 1 ? 240 + 60 * Math.sqrt(i) : 260) * (live ? 1 : 1.4);
+      const n: Node = { agent: a, x: p.x + Math.cos(angle) * r, y: p.y + (Math.sin(angle) * r) / SY, w: W, h: live ? 100 : 66, parent: p.agent.id, depth, live };
+      nodes.push(n);
+      byId[a.id] = n;
+      if (depth < 6) grow(n, depth + 1);
+    });
+  };
+  grow(nodes[0], 1);
+
+  // relax: springs to the parent (short for working agents), rectangles pushed apart
+  const rest = (n: Node) => (n.depth > 1 ? 300 : n.live ? 330 : 480);
+  const STEPS = 260;
+  for (let it = 0; it < STEPS; it++) {
+    const heat = 0.06 + 0.5 * (1 - it / STEPS);
+    for (const n of nodes) {
+      if (!n.parent) continue;
+      const p = byId[n.parent];
+      const dx = n.x - p.x;
+      const dy = (n.y - p.y) * SY;
+      const d = Math.hypot(dx, dy) || 1;
+      const f = ((d - rest(n)) / d) * heat * 0.4;
+      n.x -= dx * f;
+      n.y -= (dy * f) / SY;
+    }
+    for (let i = 0; i < nodes.length; i++)
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i];
+        const b = nodes[j];
+        let dx = b.x - a.x;
+        let dy = b.y - a.y;
+        const ox = (a.w + b.w) / 2 + PAD - Math.abs(dx);
+        const oy = (a.h + b.h) / 2 + PAD - Math.abs(dy);
+        if (ox <= 0 || oy <= 0) continue;
+        if (!dx && !dy) dx = hash(b.agent.id) - 0.5 || 0.1;
+        const d = Math.hypot(dx, dy * SY);
+        const ux = dx / d;
+        const uy = (dy * SY) / d / SY;
+        // the distance along the line between them that clears the overlap on one axis
+        const move = Math.min(ux ? ox / Math.abs(ux) : Infinity, uy ? oy / Math.abs(uy) : Infinity) * 0.5;
+        const wa = a.depth === 0 ? 0 : b.depth === 0 ? 1 : 0.5; // the orchestrator stays put
+        a.x -= ux * move * wa;
+        a.y -= uy * move * wa;
+        b.x += ux * move * (1 - wa);
+        b.y += uy * move * (1 - wa);
+      }
+  }
   return nodes;
 }
 
@@ -47,7 +100,7 @@ export function AgentCanvas({ session, now, waitingBy, selected, onSelect }: Pro
     const orphans = Object.values(session.agents).filter((a) => a.id !== 'main' && a.parentId && !session.agents[a.parentId]);
     return orphans.length ? { ...session, agents: { ...session.agents, ...Object.fromEntries(orphans.map((o) => [o.id, { ...o, parentId: 'main' }])) } } : session;
   }, [session]);
-  const nodes = useMemo(() => layout(s), [s]);
+  const nodes = useMemo(() => layout(s, waitingBy), [s, waitingBy]);
   const byId = useMemo(() => Object.fromEntries(nodes.map((n) => [n.agent.id, n])), [nodes]);
 
   const box = useRef<HTMLDivElement>(null);
@@ -59,12 +112,10 @@ export function AgentCanvas({ session, now, waitingBy, selected, onSelect }: Pro
   const fit = useCallback(() => {
     const el = box.current;
     if (!el || !nodes.length) return;
-    const xs = nodes.map((n) => n.x);
-    const ys = nodes.map((n) => n.y);
-    const minX = Math.min(...xs) - W / 2 - 24;
-    const maxX = Math.max(...xs) + W / 2 + 24;
-    const minY = Math.min(...ys) - H / 2 - 24;
-    const maxY = Math.max(...ys) + H / 2 + 24;
+    const minX = Math.min(...nodes.map((n) => n.x - n.w / 2)) - 24;
+    const maxX = Math.max(...nodes.map((n) => n.x + n.w / 2)) + 24;
+    const minY = Math.min(...nodes.map((n) => n.y - n.h / 2)) - 24;
+    const maxY = Math.max(...nodes.map((n) => n.y + n.h / 2)) + 24;
     const k = Math.max(MIN_K, Math.min(1, Math.min(el.clientWidth / (maxX - minX), el.clientHeight / (maxY - minY))));
     setView({ k, x: el.clientWidth / 2 - ((minX + maxX) / 2) * k, y: el.clientHeight / 2 - ((minY + maxY) / 2) * k });
   }, [nodes]);
@@ -153,26 +204,35 @@ export function AgentCanvas({ session, now, waitingBy, selected, onSelect }: Pro
           const r = box.current!.getBoundingClientRect();
           zoomAt(1.6, e.clientX - r.left, e.clientY - r.top);
         }}
-        style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,.06) 1px, transparent 1px)', backgroundSize: `${22 * view.k}px ${22 * view.k}px`, backgroundPosition: `${view.x}px ${view.y}px` }}
+        style={{ backgroundImage: 'radial-gradient(var(--grid-dot) 1px, transparent 1px)', backgroundSize: `${22 * view.k}px ${22 * view.k}px`, backgroundPosition: `${view.x}px ${view.y}px` }}
       >
         <div className="absolute left-0 top-0 origin-top-left" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})` }}>
           <svg className="pointer-events-none absolute overflow-visible" style={{ left: 0, top: 0 }} width="1" height="1" aria-hidden="true">
+            {/* the swarm's core: a soft glow under the orchestrator */}
+            <circle cx={0} cy={0} r={260} fill="url(#ab-core)" />
+            <defs>
+              <radialGradient id="ab-core">
+                <stop offset="0" stopColor="var(--run)" stopOpacity="0.10" />
+                <stop offset="1" stopColor="var(--run)" stopOpacity="0" />
+              </radialGradient>
+            </defs>
             {nodes
               .filter((n) => n.parent)
               .map((n) => {
                 const p = byId[n.parent!];
                 if (!p) return null;
-                const running = n.agent.status === 'running';
-                const mx = (p.x + n.x) / 2;
-                const my = (p.y + n.y) / 2;
                 return (
-                  <path
+                  <line
                     key={n.agent.id}
-                    d={`M ${p.x} ${p.y} Q ${mx * 0.9} ${my * 0.9} ${n.x} ${n.y}`}
-                    fill="none"
-                    stroke={running ? 'rgba(77,141,255,.75)' : 'rgba(255,255,255,.14)'}
-                    strokeWidth={running ? 1.6 : 1}
-                    strokeDasharray={running ? '5 5' : undefined}
+                    x1={p.x}
+                    y1={p.y}
+                    x2={n.x}
+                    y2={n.y}
+                    stroke={n.live ? 'var(--run)' : 'var(--edge)'}
+                    strokeOpacity={n.live ? 0.55 : 1}
+                    strokeWidth={n.live ? 1.5 : 1}
+                    strokeDasharray={n.live ? '4 6' : undefined}
+                    className={cn(n.live && 'edge-flow', 'transition-all duration-700')}
                   />
                 );
               })}
@@ -181,7 +241,7 @@ export function AgentCanvas({ session, now, waitingBy, selected, onSelect }: Pro
             view.k < MINI_BELOW ? (
               <MiniNode key={n.agent.id} n={n} k={view.k} waiting={waitingBy[n.agent.id] || 0} sessionEnded={!!s.endedAt} selected={selected === n.agent.id} onSelect={() => onSelect(selected === n.agent.id ? null : n.agent.id)} />
             ) : (
-            <div key={n.agent.id} className="absolute" style={{ left: n.x - (n.depth === 0 ? 152 : W / 2), top: n.y - H / 2 }}>
+            <div key={n.agent.id} className="absolute transition-[left,top] duration-700 ease-out" style={{ left: n.x - n.w / 2, top: n.y - n.h / 2 }}>
               <AgentCard
                 agent={n.agent}
                 now={now}
@@ -196,7 +256,7 @@ export function AgentCanvas({ session, now, waitingBy, selected, onSelect }: Pro
         </div>
 
         {/* controls */}
-        <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-xl bg-page/85 p-1 ring-line backdrop-blur" onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
+        <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-xl bg-card/90 p-1 ring-card backdrop-blur" onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
           <CtlButton label="Uzaklaş" onClick={() => zoomCenter(1 / 1.25)}>
             <Minus className="size-4" />
           </CtlButton>
@@ -230,33 +290,27 @@ export function AgentCanvas({ session, now, waitingBy, selected, onSelect }: Pro
 function MiniNode({ n, k, waiting, sessionEnded, selected, onSelect }: { n: Node; k: number; waiting: number; sessionEnded: boolean; selected: boolean; onSelect: () => void }) {
   const a = n.agent;
   const main = n.depth === 0;
-  const status = waiting ? 'waiting' : main && a.status === 'done' && !sessionEnded ? 'idle' : a.status;
-  const dot = { running: 'bg-run pulse-dot', done: 'bg-ok', error: 'bg-err', idle: 'bg-faint', waiting: 'bg-alert pulse-dot' }[status];
+  const st = AGENT_STATE[agentState(a, sessionEnded, waiting)];
   const f = 1 / k; // world units per screen pixel
   return (
     <button
       onClick={onSelect}
-      title={`${main ? 'Orchestrator' : displayName(a)} · ${a.toolCalls} araç · ${usd(a.costUsd)}`}
-      className={cn(
-        'absolute flex items-center rounded-[1em] bg-card text-left ring-line transition-colors hover:bg-raise',
-        status === 'waiting' && 'attention',
-        status === 'running' && 'shadow-[inset_0_0_0_1px_rgba(77,141,255,.5)]',
-        selected && 'shadow-[inset_0_0_0_2px_rgba(255,255,255,.5)]'
-      )}
+      title={`${main ? 'Orkestratör' : displayName(a)} · ${st.label} · ${a.toolCalls} araç · ${usd(a.costUsd)}`}
+      className={cn('absolute flex items-center rounded-[1em] bg-card text-left ring-card transition-[left,top,background-color] duration-700 hover:bg-raise', st.ring, selected && 'ring-selected')}
       // width stays the card's footprint so labels never overlap; only type and height scale with zoom
       style={{
-        left: n.x - (main ? 152 : W / 2),
-        top: n.y - Math.min(19 * f, H / 2),
-        width: main ? 304 : W,
-        height: Math.min(38 * f, H),
+        left: n.x - n.w / 2,
+        top: n.y - Math.min(19 * f, n.h / 2),
+        width: n.w,
+        height: Math.min(38 * f, n.h),
         padding: `0 ${Math.min(10 * f, 24)}px`,
         gap: Math.min(7 * f, 18),
-        fontSize: (main ? 12.5 : 11.5) * f,
+        fontSize: (main ? 13 : 12) * f,
       }}
     >
-      <span className={cn('shrink-0 rounded-full', dot)} style={{ width: 7 * f, height: 7 * f }} />
+      <span className={cn('shrink-0 rounded-full', st.dot)} style={{ width: 7 * f, height: 7 * f }} />
       {/* name gets both lines; cost and tool count live in the tooltip at this zoom */}
-      <span className={cn('line-clamp-2 min-w-0 flex-1 leading-[1.15]', main ? 'font-semibold text-ink' : 'text-text')}>{main ? 'Orchestrator' : displayName(a)}</span>
+      <span className={cn('line-clamp-2 min-w-0 flex-1 leading-[1.15]', main ? 'font-semibold text-ink' : 'text-text')}>{main ? 'Orkestratör' : displayName(a)}</span>
     </button>
   );
 }
