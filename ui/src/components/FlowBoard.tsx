@@ -35,10 +35,10 @@ export function FlowBoard({ cards, grouping, multiSession, now, onOpen }: Props)
 
 function ColumnHead({ c, count }: { c: (typeof COLUMNS)[number]; count: number }) {
   return (
-    <div className="flex items-center gap-2 px-1 pb-2 text-[12.5px] font-medium text-muted">
+    <div className="flex items-center gap-2 px-1 pb-2.5 pt-0.5 text-[13px] font-medium text-text">
       <span className={cn('size-2 rounded-full', COL_TONE[c.id])} />
       <span className={cn(c.id === 'review' && count > 0 && 'text-alert')}>{c.label}</span>
-      <span className="font-mono text-[11px] text-faint">{count}</span>
+      <span className="ml-auto rounded-full bg-tile px-1.5 text-[11px] tabular-nums text-muted ring-line">{count}</span>
     </div>
   );
 }
@@ -46,14 +46,14 @@ function ColumnHead({ c, count }: { c: (typeof COLUMNS)[number]; count: number }
 function Columns({ cards, multiSession, now, onOpen }: Omit<Props, 'grouping'>) {
   const [showAllDone, setShowAllDone] = useState(false);
   return (
-    <div className="scroll-thin overflow-x-auto rounded-[22px] bg-tray p-2 ring-line">
+    <div className="scroll-thin overflow-x-auto rounded-[20px] bg-tray p-2 ring-line">
       {/* phones: columns stack and empty ones step aside; wider screens get the four-column board */}
       <div className="flex flex-col gap-2 sm:grid sm:min-w-[760px] sm:grid-cols-4">
         {COLUMNS.map((c) => {
           const list = cards.filter((x) => x.column === c.id).sort(order(c.id));
           const shown = c.id === 'done' && !showAllDone ? list.slice(0, DONE_LIMIT) : list;
           return (
-            <section key={c.id} className={cn('rounded-2xl p-2 sm:min-h-[180px]', !list.length && 'hidden sm:block', c.id === 'review' && list.length ? 'bg-alert/[0.06]' : 'bg-page/50')}>
+            <section key={c.id} className={cn('rounded-2xl p-2 sm:min-h-[200px]', !list.length && 'hidden sm:block', c.id === 'review' && list.length ? 'bg-alert/[0.05] shadow-[inset_0_0_0_1px_rgba(251,138,60,.18)]' : 'bg-white/[0.015]')}>
               <ColumnHead c={c} count={list.length} />
               <div className="space-y-1.5">
                 {shown.map((card) => (
@@ -96,14 +96,14 @@ function Lanes({ cards, multiSession, now, onOpen }: Omit<Props, 'grouping'>) {
             <ColumnHead key={c.id} c={c} count={cards.filter((x) => x.column === c.id).length} />
           ))}
         </div>
-        <div className="space-y-2">
+        <div>
           {keys.map((k) => {
             const list = lanes.get(k)!;
             const s = list[0].session;
             const agentId = list[0].agentId;
             const agent = agentId ? s.agents[agentId] : null;
             return (
-              <div key={k} className="grid grid-cols-[140px_repeat(4,minmax(0,1fr))] gap-2 rounded-2xl bg-page/50 p-2">
+              <div key={k} className="grid grid-cols-[140px_repeat(4,minmax(0,1fr))] gap-2 rounded-xl px-1 py-2 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-line">
                 <button className="flex min-w-0 items-start gap-2 rounded-lg p-1 text-left hover:bg-tile" onClick={() => onOpen(s.id, agentId)}>
                   <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-md bg-tile text-muted ring-line">
                     {agentId === 'main' ? <Network className="size-3.5" /> : <Bot className="size-3.5" />}
@@ -143,11 +143,11 @@ function Card({ card, multiSession, now, onOpen, showAgent }: { card: FlowCard; 
     <button
       onClick={() => onOpen(card.session.id, card.agentId)}
       className={cn(
-        'enter block w-full rounded-xl bg-card px-2.5 py-2 text-left ring-line transition-colors hover:bg-raise/70',
-        card.column === 'review' && 'attention',
-        card.column === 'doing' && 'shadow-[inset_0_0_0_1px_rgba(77,141,255,.3)]'
+        'enter relative block w-full overflow-hidden rounded-xl bg-card py-2 pl-3.5 pr-2.5 text-left ring-line transition-[background-color,transform] duration-150 hover:-translate-y-px hover:bg-raise/70',
+        card.column === 'review' && 'attention'
       )}
     >
+      <span className={cn('absolute inset-y-0 left-0 w-[3px]', COL_TONE[card.column], card.column === 'done' && 'opacity-50', card.column === 'doing' && 'pulse-dot')} aria-hidden="true" />
       <span className={cn('line-clamp-2 text-[12.5px] leading-[18px]', done ? 'text-muted' : 'text-ink', card.error && 'text-err')}>
         {(card.taskId || multiSession) && (
           <span className="mr-1 font-mono text-[11px] text-faint">

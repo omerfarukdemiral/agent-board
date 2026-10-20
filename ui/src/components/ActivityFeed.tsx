@@ -1,6 +1,6 @@
 // Live activity: prompts, replies, subagent spawns and tool calls (affectUI ToolCallCard/ToolCallGroup, free/MIT).
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowUp, Bot, Check, MessageSquare, Radio, ShieldQuestion, Terminal, User, X } from 'lucide-react';
+import { Bot, Check, MessageSquare, Radio, ShieldQuestion, Terminal, User, X } from 'lucide-react';
 import { agentName, cn } from '../lib';
 import { Md } from './Md';
 import type { ActivityItem, Session } from '../types';
@@ -33,11 +33,9 @@ type Props = {
   items: ActivityItem[];
   filter: string | null;
   onFilter: (id: string | null) => void;
-  channel: boolean;
-  onSend: (text: string) => Promise<boolean>;
 };
 
-export function ActivityFeed({ session, items, filter: selected, onFilter, channel, onSend }: Props) {
+export function ActivityFeed({ session, items, filter: selected, onFilter }: Props) {
   const filter = selected || 'all';
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -94,58 +92,7 @@ export function ActivityFeed({ session, items, filter: selected, onFilter, chann
         {visible.length === 0 && <p className="py-10 text-center text-[13px] text-muted">Henüz etkinlik yok.</p>}
         {visible.map((b) => (b.kind === 'tools' ? <ToolBlock key={b.key} b={b} session={session} /> : <Single key={b.key} it={b.item} session={session} />))}
       </div>
-      <Composer
-        key={session.id}
-        disabled={!channel || !!session.endedAt}
-        hint={session.endedAt ? 'Oturum kapandı.' : !channel ? 'Bu oturum kanalsız açıldı. Buradan yazmak için oturumu claude-board ile başlat.' : null}
-        onSend={(text) => {
-          stick.current = true;
-          return onSend(text);
-        }}
-      />
     </section>
-  );
-}
-
-function Composer({ disabled, hint, onSend }: { disabled: boolean; hint: string | null; onSend: (text: string) => Promise<boolean> }) {
-  const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
-  const submit = async () => {
-    const t = text.trim();
-    if (!t || busy || disabled) return;
-    setBusy(true);
-    setError(false);
-    const ok = await onSend(t);
-    setBusy(false);
-    if (ok) setText('');
-    else setError(true);
-  };
-  return (
-    <div className="mt-1.5 rounded-2xl bg-card p-2 ring-line">
-      <div className="flex items-end gap-2">
-        <textarea
-          value={text}
-          disabled={disabled}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              submit();
-            }
-          }}
-          rows={Math.min(6, Math.max(1, text.split('\n').length))}
-          placeholder={disabled ? 'Mesaj gönderilemiyor' : "Claude'a yaz… (Enter gönderir, Shift+Enter yeni satır)"}
-          className="scroll-thin max-h-40 min-h-[36px] flex-1 resize-none bg-transparent px-2 py-2 text-[13px] leading-5 text-ink placeholder:text-faint focus:outline-none disabled:cursor-not-allowed"
-        />
-        <button className="btn btn-primary grid !size-8 shrink-0 place-items-center !p-0" disabled={disabled || busy || !text.trim()} onClick={submit} aria-label="Gönder">
-          <ArrowUp className="size-4" />
-        </button>
-      </div>
-      {(hint || error) && (
-        <p className={cn('px-2 pb-0.5 pt-1 text-[11px]', error ? 'text-err' : 'text-faint')}>{error ? 'Gönderilemedi: oturumun kanalı kopmuş olabilir.' : hint}</p>
-      )}
-    </div>
   );
 }
 

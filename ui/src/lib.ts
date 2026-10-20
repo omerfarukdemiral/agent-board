@@ -55,10 +55,13 @@ export function childrenOf(s: Session, id: string): Agent[] {
     .sort((a, b) => a.startedAt - b.startedAt);
 }
 
+// Claude prefixes delegated work with its task id ("#3 Write tests"); the card already shows the id
+export const displayName = (a: Agent) => (a.description || a.type).replace(/^#\d+\s*[:·-]?\s*/, '');
+
 export function agentName(s: Session | undefined, id: string) {
   if (id === 'main') return 'Orchestrator';
   const a = s?.agents[id];
-  return a ? (a.description || a.type).replace(/^#\d+\s*[:·-]?\s*/, '') : id.slice(0, 8);
+  return a ? displayName(a) : id.slice(0, 8);
 }
 
 export function requestLabel(r: ApprovalRequest) {

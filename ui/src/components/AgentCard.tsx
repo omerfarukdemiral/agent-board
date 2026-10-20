@@ -1,5 +1,5 @@
 import { Bot, Clock, Network, Wrench } from 'lucide-react';
-import { cn, compact, duration, modelLabel, usd } from '../lib';
+import { cn, compact, displayName, duration, modelLabel, usd } from '../lib';
 import type { Agent } from '../types';
 import { ThinkingLoader } from './affect/thinking-loader';
 
@@ -43,7 +43,7 @@ export function AgentCard({ agent: a, now, sessionEnded, waiting, selected, onSe
           {main ? <Network className="size-3.5" /> : <Bot className="size-3.5" />}
         </span>
         <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink" title={a.description ?? undefined}>
-          {main ? 'Orchestrator' : a.description || a.type}
+          {main ? 'Orchestrator' : displayName(a)}
         </span>
         <span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors duration-500', b.cls)}>
           <span className={cn('size-1.5 rounded-full', b.dot)} />
