@@ -74,63 +74,72 @@ function Columns({ cards, multiSession, now, onOpen }: Omit<Props, 'grouping'>) 
 }
 
 function Lanes({ cards, multiSession, now, onOpen }: Omit<Props, 'grouping'>) {
-  // one lane per (session, agent); unassigned tasks get their own lane at the end
-  const lanes = new Map<string, FlowCard[]>();
+  // session → agent lanes; a task shared by several subagents shows in the primary agent's lane
+  const bySession = new Map<string, Map<string, FlowCard[]>>();
   for (const c of cards) {
-    const k = `${c.session.id}|${c.agentId ?? ''}`;
+    const lanes = bySession.get(c.session.id) || new Map<string, FlowCard[]>();
+    const k = c.agentId ?? '';
     lanes.set(k, [...(lanes.get(k) || []), c]);
+    bySession.set(c.session.id, lanes);
   }
-  const keys = [...lanes.keys()].sort((a, b) => {
-    const [sa, ia] = a.split('|');
-    const [sb, ib] = b.split('|');
-    if (sa !== sb) return sa < sb ? -1 : 1;
-    const rank = (id: string) => (id === 'main' ? 0 : id === '' ? 2 : 1);
-    return rank(ia) - rank(ib);
-  });
+  const rank = (id: string) => (id === 'main' ? 0 : id === '' ? 2 : 1);
   return (
-    <div className="scroll-thin overflow-x-auto rounded-[22px] bg-tray p-2 ring-line">
-      <div className="min-w-[840px]">
-        <div className="grid grid-cols-[140px_repeat(4,minmax(0,1fr))] gap-2 px-1 pt-1">
+    <div className="scroll-thin overflow-x-auto rounded-[20px] bg-tray p-2 ring-line">
+      <div className="min-w-[880px]">
+        <div className="grid grid-cols-[180px_repeat(4,minmax(0,1fr))] gap-2 px-1 pt-1">
           <span />
           {COLUMNS.map((c) => (
             <ColumnHead key={c.id} c={c} count={cards.filter((x) => x.column === c.id).length} />
           ))}
         </div>
-        <div>
-          {keys.map((k) => {
-            const list = lanes.get(k)!;
-            const s = list[0].session;
-            const agentId = list[0].agentId;
-            const agent = agentId ? s.agents[agentId] : null;
-            return (
-              <div key={k} className="grid grid-cols-[140px_repeat(4,minmax(0,1fr))] gap-2 rounded-xl px-1 py-2 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-line">
-                <button className="flex min-w-0 items-start gap-2 rounded-lg p-1 text-left hover:bg-tile" onClick={() => onOpen(s.id, agentId)}>
-                  <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-md bg-tile text-muted ring-line">
-                    {agentId === 'main' ? <Network className="size-3.5" /> : <Bot className="size-3.5" />}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-[12.5px] font-medium text-ink">{agentId ? agentName(s, agentId) : 'Atanmamış'}</span>
-                    <span className="flex min-w-0 items-center gap-1.5 truncate whitespace-nowrap text-[11px] text-faint">
-                      {agent && <span className={cn('size-1.5 rounded-full', agent.status === 'running' ? 'bg-run pulse-dot' : agent.status === 'error' ? 'bg-err' : 'bg-ok')} />}
-                      {agent ? (agentId === 'main' ? 'orkestratör' : agent.type) : 'görev'}
-                      {multiSession && <span className="font-mono">#{s.id.slice(0, 4)}</span>}
-                    </span>
-                  </span>
-                </button>
-                {COLUMNS.map((c) => (
-                  <div key={c.id} className="min-w-0 space-y-1.5">
-                    {list
-                      .filter((x) => x.column === c.id)
-                      .sort(order(c.id))
-                      .map((card) => (
-                        <Card key={card.key} card={card} multiSession={false} now={now} onOpen={onOpen} showAgent={false} />
+        {[...bySession.entries()].map(([sid, lanes]) => {
+          const s = lanes.values().next().value![0].session;
+          const subs = Object.values(s.agents).filter((a) => a.id !== 'main');
+          return (
+            <section key={sid} className="mt-1">
+              {multiSession && (
+                <header className="flex items-center gap-2 px-2 pb-1 pt-2 text-[12px] text-muted">
+                  <span className={cn('size-1.5 rounded-full', s.endedAt ? 'bg-faint' : subs.some((a) => a.status === 'running') || s.agents.main?.status === 'running' ? 'bg-run pulse-dot' : 'bg-ok')} />
+                  <span className="font-mono text-ink">#{sid.slice(0, 4)}</span>
+                  <span>1 orkestratör{subs.length ? ` + ${subs.length} subagent` : ''}</span>
+                  <span className="h-px flex-1 bg-line" />
+                </header>
+              )}
+              {[...lanes.keys()]
+                .sort((a, b) => rank(a) - rank(b))
+                .map((agentId) => {
+                  const list = lanes.get(agentId)!;
+                  const agent = agentId ? s.agents[agentId] : null;
+                  return (
+                    <div key={agentId} className="grid grid-cols-[180px_repeat(4,minmax(0,1fr))] gap-2 rounded-xl px-1 py-2 [&:not(:first-of-type)]:border-t [&:not(:first-of-type)]:border-line">
+                      <button className="flex min-w-0 items-start gap-2 rounded-lg p-1 text-left hover:bg-tile" onClick={() => onOpen(s.id, agentId || null)}>
+                        <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-md bg-tile text-muted ring-line">
+                          {agentId === 'main' ? <Network className="size-3.5" /> : <Bot className="size-3.5" />}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="line-clamp-2 text-[12.5px] font-medium leading-[17px] text-ink">{agentId ? agentName(s, agentId) : 'Atanmamış'}</span>
+                          <span className="mt-0.5 flex min-w-0 items-center gap-1.5 truncate whitespace-nowrap text-[11px] text-faint">
+                            {agent && <span className={cn('size-1.5 shrink-0 rounded-full', agent.status === 'running' ? 'bg-run pulse-dot' : agent.status === 'error' ? 'bg-err' : 'bg-ok')} />}
+                            {agent ? (agentId === 'main' ? 'orkestratör' : agent.type) : 'görev'}
+                          </span>
+                        </span>
+                      </button>
+                      {COLUMNS.map((c) => (
+                        <div key={c.id} className="min-w-0 space-y-1.5">
+                          {list
+                            .filter((x) => x.column === c.id)
+                            .sort(order(c.id))
+                            .map((card) => (
+                              <Card key={card.key} card={card} multiSession={false} now={now} onOpen={onOpen} showAgent={false} />
+                            ))}
+                        </div>
                       ))}
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
+                    </div>
+                  );
+                })}
+            </section>
+          );
+        })}
       </div>
     </div>
   );
@@ -165,6 +174,11 @@ function Card({ card, multiSession, now, onOpen, showAgent }: { card: FlowCard; 
             <span className="inline-flex min-w-0 items-center gap-1 rounded-md bg-tile px-1.5 py-px text-muted ring-line" title={`${agentName(card.session, card.agentId!)}${card.guessed ? ' · tahmini eşleşme' : ''}`}>
               {card.agentId === 'main' ? <Network className="size-3 shrink-0" /> : <Bot className="size-3 shrink-0" />}
               <span className="truncate">{agentName(card.session, card.agentId!)}</span>
+              {card.helpers.length > 0 && (
+                <span className="shrink-0 text-faint" title={card.helpers.map((h) => agentName(card.session, h)).join(', ')}>
+                  +{card.helpers.length}
+                </span>
+              )}
             </span>
           ) : (
             <span className="text-faint">atanmamış</span>

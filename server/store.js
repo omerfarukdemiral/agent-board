@@ -172,12 +172,14 @@ function toolFailed(r) {
 // explicit "#id" in a subagent's description > the subagent updating the task itself >
 // word overlap between task and subagent description > whoever last moved the task.
 const ASSIGN_RANK = { explicit: 4, self: 3, match: 2, updater: 1 };
-const STOP = new Set(['the', 'and', 'for', 'with', 'ile', 'için', 've', 'bir', 'bu', 'şu', 'olan', 'yap', 'yaz', 'run', 'task', 'görev']);
+// generic words say nothing about which agent does what ("tüm testleri npm test ile çalıştır" vs "Standings testleri")
+const STOP = new Set(['the', 'and', 'for', 'with', 'ile', 'için', 've', 'bir', 'bu', 'şu', 'olan', 'yap', 'yaz', 'run', 'task', 'görev', 'test', 'tests', 'testler', 'testleri', 'npm', 'node', 'src', 'ekle', 'güncelle', 'dosya', 'dosyası', 'tüm']);
 // paths count whole and by their parts, so "test/store.test.js" also matches "store.test.js"
 function words(text) {
   const out = new Set();
   for (const w of String(text || '').toLocaleLowerCase('tr').split(/[^\p{L}\p{N}./_-]+/u)) {
-    for (const part of [w, ...(/[/.]/.test(w) ? w.split(/[/.]/) : [])]) if (part.length > 2 && !STOP.has(part)) out.add(part);
+    const base = w.includes('/') ? [w.slice(w.lastIndexOf('/') + 1)] : [];
+    for (const part of [w, ...base, ...(/[/.]/.test(w) ? w.split(/[/.]/) : [])]) if (part.length > 2 && !STOP.has(part)) out.add(part);
   }
   return out;
 }
@@ -190,9 +192,16 @@ function assign(t, agentId, how) {
 
 function linkTasks(s) {
   const subs = Object.values(s.agents).filter((a) => a.id !== 'main' && a.description);
-  for (const a of subs) {
-    const m = a.description.match(/#(\d+)\b/);
-    if (m && s.tasks[m[1]]) assign(s.tasks[m[1]], a.id, 'explicit');
+  // "#1 …" is explicit; several subagents may share one task (Claude splits work), so keep them all
+  const explicit = new Set();
+  for (const t of Object.values(s.tasks)) t.helpers = [];
+  for (const a of subs.sort((x, y) => x.startedAt - y.startedAt)) {
+    const m = a.description.match(/^\s*#(\d+)\b/) || a.description.match(/#(\d+)\b/);
+    const t = m && s.tasks[m[1]];
+    if (!t) continue;
+    explicit.add(a.id);
+    if (t.assigneeBy === 'explicit' && t.assignee && t.assignee !== a.id) t.helpers.push(a.id);
+    else assign(t, a.id, 'explicit');
   }
   for (const t of Object.values(s.tasks)) {
     if (t.assignee && ASSIGN_RANK[t.assigneeBy] >= ASSIGN_RANK.match) continue;
@@ -200,6 +209,7 @@ function linkTasks(s) {
     let best = null;
     let score = 0;
     for (const a of subs) {
+      if (explicit.has(a.id)) continue; // already tied to its own task
       const aw = words(a.description);
       let hit = 0;
       for (const w of aw) if (tw.has(w)) hit++;
@@ -421,7 +431,10 @@ function reduce(p) {
           if (c.status === 'running') end(c);
           if (p.tool_response.status === 'failed') c.status = 'error';
         }
-        if (!c.description && p.tool_input && p.tool_input.description) c.description = p.tool_input.description;
+        if (!c.description && p.tool_input && p.tool_input.description) {
+          c.description = p.tool_input.description;
+          linkTasks(s); // background agents return here right away; link before the first card renders twice
+        }
       }
       break;
     }

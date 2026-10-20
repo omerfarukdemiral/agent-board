@@ -25,6 +25,7 @@ export type Task = {
   agentId: string; // creator
   assignee?: string | null;
   assigneeBy?: 'explicit' | 'self' | 'match' | 'updater';
+  helpers?: string[]; // other subagents Claude gave the same task id
   owner?: string;
   createdAt?: number;
   startedAt?: number;

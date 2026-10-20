@@ -30,6 +30,7 @@ export type FlowCard = {
   taskId?: string;
   title: string;
   agentId: string | null; // who does it
+  helpers: string[]; // more agents on the same task
   guessed: boolean; // assignee inferred, not stated
   column: Column;
   reason?: 'approval' | 'review' | 'decision' | 'abandoned';
@@ -50,11 +51,13 @@ export function flowCards(sessions: Session[], pending: ApprovalRequest[]): Flow
     const linked = new Set<string>();
     for (const t of Object.values(s.tasks) as Task[]) {
       const agentId = t.assignee ?? null;
+      const helpers = t.helpers || [];
       if (agentId) linked.add(agentId);
+      for (const h of helpers) linked.add(h);
       let column = STATUS_COL[t.status] ?? 'todo';
       let since = (column === 'done' ? t.completedAt : column === 'doing' ? t.startedAt : t.createdAt) ?? t.updatedAt;
       let reason: FlowCard['reason'];
-      const waitSince = agentId != null && column === 'doing' ? waitingAgents.get(agentId) : undefined;
+      const waitSince = column === 'doing' ? [agentId, ...helpers].map((id) => (id ? waitingAgents.get(id) : undefined)).find((x) => x !== undefined) : undefined;
       const flag = flagged.get(t.id);
       if (waitSince !== undefined) [column, reason, since] = ['review', 'approval', waitSince];
       else if (flag) [column, reason, since] = ['review', flag.kind === 'decision' ? 'decision' : 'review', flag.createdAt];
@@ -67,6 +70,7 @@ export function flowCards(sessions: Session[], pending: ApprovalRequest[]): Flow
         taskId: t.id,
         title: column === 'doing' && t.activeForm && !s.endedAt ? t.activeForm : t.subject,
         agentId,
+        helpers,
         guessed: t.assigneeBy === 'match' || t.assigneeBy === 'updater',
         column,
         reason,
@@ -84,6 +88,7 @@ export function flowCards(sessions: Session[], pending: ApprovalRequest[]): Flow
         session: s,
         title: a.description || a.type,
         agentId: a.id,
+        helpers: [],
         guessed: false,
         column,
         reason: waitSince !== undefined ? 'approval' : undefined,

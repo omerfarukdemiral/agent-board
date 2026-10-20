@@ -65,3 +65,12 @@ Bu oturumda affectUI MCP'si bağlı değil. kartlar shadcn tarzında elle yazıl
 - `inbox` aracı (kanal MCP aracı) talimatla doğru kullanıldı: karar, review ve bilgi ayrımı istendiği gibi; dokümantasyon oturumu kendiliğinden gerçek bir hata bildirdi (silinen en büyük id'nin yeniden kullanılması).
 - inbox'tan "Cevapla" → kanal mesajı → Claude değişikliği uyguladı (CSV ayracı `;`), 59/59 test.
 - görev araçları yeni modellerde varsayılan kapalı; `claude-board` `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` ile açıyor.
+
+## yük testi: turnuva platformu (3 eşzamanlı oturum, haiku)
+- 3 oturum (core / api / qa), 14 agent (11 subagent, 1 nested), tepe noktada 8 agent aynı anda çalışıyor. 3 oturumda 501 hook olayı, 9/9 görev bitti, inbox'ta 7 kayıt. ortaya çıkan ürün: 52/52 test, API ve doğrulama elle denendi.
+- board sunucusu belleği 16–31 MB; tarayıcıda hiç long task yok.
+- Claude bir görevi birden fazla subagent'a bölebiliyor (`#1 Bracket testleri`, `#1 Standings testleri`). görev artık birden fazla agent taşıyor (ana + yardımcılar).
+- genel kelimeler ("test", "testleri", "npm") kelime eşleşmesini yanıltıyordu: "Tüm testleri npm test ile çalıştır" bir test subagent'ına bağlanmıştı. bu kelimeler artık sayılmıyor; açıkça başka göreve bağlı agent kelime eşleşmesine girmiyor; dosya yollarının son parçası ayrı kelime. kayıtlı 7 oturumda 13/13 subagent bağlantısı doğru.
+- arka plan subagent'larında Agent aracı hemen dönüyor; açıklama bu yoldan gelince eşleşme bir sonraki olaya kadar gecikiyordu (aynı iş birkaç saniye iki kart). artık o anda eşleşiyor.
+- inbox, oturumlar arası entegrasyon sorunlarını yakaladı (lig fikstürü core'da yok → API'de 404).
+- bilinen sınır: sunucu kapalıyken gelen hook olayları kaybolur (hook'lar sessizce vazgeçer).
