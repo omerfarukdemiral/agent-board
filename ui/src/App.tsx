@@ -1,10 +1,11 @@
-// Two screens: "Şimdi" (everything at a glance, optionally narrowed to a project) and a session page.
+// Left menu (projects → sessions) next to one main area: Şimdi, a project, or a session.
 // The URL carries where you are (?s=<session> or ?p=<project>), so back/forward and links work.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bell, Network } from 'lucide-react';
+import { Bell, Menu, Network, X } from 'lucide-react';
 import { requestLabel, cn, projectName } from './lib';
 import type { ApprovalRequest } from './types';
 import { useAttention, useBoard, useNow } from './useBoard';
+import { Sidebar } from './components/Sidebar';
 import { Home } from './views/Home';
 import { SessionPage } from './views/SessionPage';
 
@@ -20,6 +21,7 @@ function readRoute(): Route {
 export default function App() {
   const { sessions, activity, requests, connected, channelPids, decide, sendMessage, ackInbox } = useBoard();
   const [route, setRoute] = useState<Route>(readRoute);
+  const [menuOpen, setMenuOpen] = useState(false); // phones: the menu is a drawer
   const [notifyPerm, setNotifyPerm] = useState(() => ('Notification' in window ? Notification.permission : 'denied'));
 
   const go = useCallback((next: Route) => {
@@ -29,6 +31,7 @@ export default function App() {
     else if (next.project) url.searchParams.set('p', next.project);
     history.pushState(null, '', url);
     setRoute(next);
+    setMenuOpen(false);
     window.scrollTo(0, 0);
   }, []);
   useEffect(() => {
@@ -63,7 +66,10 @@ export default function App() {
   return (
     <div className="dark min-h-screen">
       <header className="sticky top-0 z-30 border-b border-line bg-page/85 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-2.5">
+        <div className="flex items-center gap-3 px-4 py-2.5">
+          <button onClick={() => setMenuOpen((v) => !v)} className="grid size-7 place-items-center rounded-md text-muted hover:bg-tile hover:text-ink lg:hidden" aria-label="Menü">
+            {menuOpen ? <X className="size-4" /> : <Menu className="size-4" />}
+          </button>
           <button onClick={home} className="inline-flex shrink-0 items-center gap-2 text-[13px] font-semibold text-ink">
             <span className="grid size-6 place-items-center rounded-md bg-tile ring-line">
               <Network className="size-3.5" />
@@ -85,37 +91,58 @@ export default function App() {
         </div>
       </header>
 
+      <div className="grid lg:grid-cols-[256px_minmax(0,1fr)]">
+        <aside
+          className={cn(
+            'scroll-thin border-line bg-page lg:sticky lg:top-[49px] lg:block lg:h-[calc(100vh-49px)] lg:overflow-y-auto lg:border-r',
+            menuOpen ? 'fixed inset-x-0 bottom-0 top-[49px] z-20 block overflow-y-auto' : 'hidden'
+          )}
+        >
+          <div className="p-3">
+            <Sidebar
+              sessions={all}
+              waitingBySession={waitingBySession}
+              now={now}
+              current={route}
+              onHome={home}
+              onProject={(cwd) => go({ session: null, project: cwd })}
+              onSession={(id) => go({ session: id, project: null })}
+            />
+          </div>
+        </aside>
+        <div className="min-w-0 px-4 py-5 lg:px-6">
       {session ? (
-        <SessionPage
-          session={session}
-          requests={allRequests}
-          activity={activity}
-          waiting={waitingBySession[session.id] || 0}
-          channelPids={channelPids}
-          now={now}
-          onHome={home}
-          onProject={(cwd) => go({ session: null, project: cwd })}
-          onSession={(id) => go({ session: id, project: null })}
-          onDecide={decide}
-          onAck={ackInbox}
-          onSend={sendMessage}
-        />
-      ) : (
-        <Home
-          sessions={all}
-          requests={allRequests}
-          activity={activity}
-          waitingBySession={waitingBySession}
-          channelPids={channelPids}
-          now={now}
-          project={route.project}
-          onProject={(cwd) => go({ session: null, project: cwd })}
-          onSession={(id) => go({ session: id, project: null })}
-          onDecide={decide}
-          onAck={ackInbox}
-          onReply={sendMessage}
-        />
-      )}
+          <SessionPage
+            session={session}
+            requests={allRequests}
+            activity={activity}
+            waiting={waitingBySession[session.id] || 0}
+            channelPids={channelPids}
+            now={now}
+            onHome={home}
+            onProject={(cwd) => go({ session: null, project: cwd })}
+            onSession={(id) => go({ session: id, project: null })}
+            onDecide={decide}
+            onAck={ackInbox}
+            onSend={sendMessage}
+          />
+        ) : (
+          <Home
+            sessions={all}
+            requests={allRequests}
+            activity={activity}
+            waitingBySession={waitingBySession}
+            channelPids={channelPids}
+            now={now}
+            project={route.project}
+            onSession={(id) => go({ session: id, project: null })}
+            onDecide={decide}
+            onAck={ackInbox}
+            onReply={sendMessage}
+          />
+        )}
+          </div>
+      </div>
     </div>
   );
 }

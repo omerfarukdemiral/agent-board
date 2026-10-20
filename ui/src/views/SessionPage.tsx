@@ -1,7 +1,7 @@
 // One session in focus: a plain sentence of what it is doing, then agents / tasks / activity,
 // and the conversation (with this session's open decisions on top) always on the right.
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Activity, ArrowLeft, Eye, LayoutGrid, Network } from 'lucide-react';
+import { Activity, Eye, LayoutGrid, Network } from 'lucide-react';
 import { ActivityFeed } from '../components/ActivityFeed';
 import { AgentTree } from '../components/AgentTree';
 import { ChatPanel } from '../components/ChatPanel';
@@ -58,14 +58,10 @@ export function SessionPage(p: Props) {
   };
 
   return (
-    <div className="mx-auto grid max-w-[1600px] gap-5 px-4 py-5 lg:grid-cols-[minmax(0,1fr)_420px]">
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
       <main className="flex min-w-0 flex-col gap-4">
         <header>
           <nav className="flex items-center gap-1.5 text-[12.5px] text-muted">
-            <button onClick={p.onHome} className="inline-flex items-center gap-1 hover:text-ink">
-              <ArrowLeft className="size-3.5" /> Şimdi
-            </button>
-            <span className="text-faint">/</span>
             <button onClick={() => p.onProject(s.cwd)} className="hover:text-ink" title={s.cwd}>
               {projectName(s.cwd)}
             </button>
@@ -124,8 +120,8 @@ export function SessionPage(p: Props) {
         )}
       </main>
 
-      <aside className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-[72px] lg:h-[calc(100vh-92px)]">
-        <div className="scroll-thin min-h-0 shrink overflow-y-auto lg:max-h-[50%]">
+      <aside className="flex min-w-0 flex-col gap-3 xl:sticky xl:top-[72px] xl:h-[calc(100vh-92px)]">
+        <div className="scroll-thin min-h-0 shrink overflow-y-auto xl:max-h-[50%]">
           <ProjectInbox
             sessions={[s]}
             requests={p.requests.filter((r) => r.sessionId === s.id)}
