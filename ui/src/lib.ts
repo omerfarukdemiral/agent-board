@@ -96,7 +96,10 @@ export const STATE_DOT: Record<SessionState, string> = { waiting: 'bg-alert puls
 
 // mcp__plugin_playwright_playwright__browser_click {…} → playwright · browser_click {…}
 export const prettyTool = (text: string) =>
-  text.replace(/\bmcp__([A-Za-z0-9_-]+?)__([A-Za-z0-9_-]+)/g, (_, server: string, tool: string) => `${server.split(/[_-]/).pop()} · ${tool}`);
+  text
+    // per-session scratch folders are long and say nothing
+    .replace(/(?:\/private)?\/tmp\/claude-\d+\/[^/\s'"]+\/[^/\s'"]+\/scratchpad/g, '<scratch>')
+    .replace(/\bmcp__([A-Za-z0-9_-]+?)__([A-Za-z0-9_-]+)/g, (_, server: string, tool: string) => `${server.split(/[_-]/).pop()} · ${tool}`);
 
 // What the session is doing right now, as one short line
 export function nowDoing(s: Session, state: SessionState): string | null {
@@ -120,3 +123,39 @@ export function runningCount(s: Session) {
 }
 
 export const sessionCost = (s: Session) => Object.values(s.agents).reduce((n, a) => n + (a.costUsd ?? 0), 0);
+
+// ---- progress -------------------------------------------------------------------------
+
+const median = (xs: number[]) => {
+  const v = [...xs].sort((a, b) => a - b);
+  return v.length ? v[Math.floor(v.length / 2)] : 0;
+};
+
+// How far a running agent probably is: its elapsed time against how long its finished peers took
+// (same workflow phase, else same parent). No peers, no guess.
+export function estimate(a: Agent, s: Session, now: number): { pct: number; left: number; peers: number; over: boolean } | null {
+  if (a.status !== 'running' || a.id === 'main' || a.workflow) return null;
+  const done = Object.values(s.agents).filter((p) => p.id !== a.id && p.status === 'done' && p.endedAt && !p.workflow && p.id !== 'main');
+  // a workflow agent is compared with its own phase only: phases do different kinds of work
+  const peers = done.filter((p) => p.parentId === a.parentId && (!a.phase || p.phase === a.phase));
+  if (!peers.length) return null;
+  const typical = median(peers.map((p) => p.endedAt! - p.startedAt));
+  if (typical < 5000) return null;
+  const elapsed = now - a.startedAt;
+  return { pct: Math.min(0.97, elapsed / typical), left: typical - elapsed, peers: peers.length, over: elapsed > typical };
+}
+
+// A workflow run's progress by phase: finished phases count whole, the current one by its agents
+export function workflowProgress(w: Agent): { pct: number; at: number; total: number } {
+  const wf = w.workflow;
+  if (!wf) return { pct: 0, at: 0, total: 0 };
+  const total = wf.phases.length || wf.phaseStats?.length || 1;
+  if (w.status !== 'running') return { pct: 1, at: total, total };
+  const at = Math.max(0, wf.current ? wf.phases.indexOf(wf.current) : 0);
+  const cur = wf.phaseStats?.find((p) => p.title === wf.current);
+  const frac = cur && cur.agents ? cur.finished / cur.agents : 0;
+  return { pct: Math.min(0.99, (at + frac) / total), at: at + 1, total };
+}
+
+// Agents that do the work (not the orchestrator, not workflow containers)
+export const workers = (s: Session) => Object.values(s.agents).filter((a) => a.id !== 'main' && !a.workflow && a.type !== 'workflow');

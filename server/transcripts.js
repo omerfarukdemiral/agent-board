@@ -134,6 +134,7 @@ function parse(st, sink) {
         else events.push({ ...first, hook_event_name: 'SessionStart', source: 'transcript', claude_pid: pids.get(st.sessionId) });
       }
       if (e.cwd && !st.cwd) st.cwd = e.cwd;
+      if (e.timestamp) st.lastTs = tsOf(e); // a finished agent ended at its last line, not when we read it
       events.push(...translate(st, e));
     }
     sink(events);
@@ -297,7 +298,7 @@ function scanWorkflows(sessionId, mainFile) {
       parse(st, store.ingestAll);
       if (finished.has(j.agentId) && st.started && !st.stopped) {
         st.stopped = true;
-        store.ingestAll([{ ...base_, ...st.extra, ts: Date.now(), hook_event_name: 'SubagentStop', agent_id: j.agentId, agent_type: st.agentType }]);
+        store.ingestAll([{ ...base_, ...st.extra, ts: st.lastTs || Date.now(), hook_event_name: 'SubagentStop', agent_id: j.agentId, agent_type: st.agentType }]);
       }
     }
     if (record) r.done = true;
@@ -339,7 +340,7 @@ function scan() {
         parse(st, store.ingestAll);
         if (meta && meta.finished && st.started && !st.stopped) {
           st.stopped = true;
-          store.ingestAll([{ session_id: sessionId, transcript_path: file, ts: Date.now(), via: 'transcript', hook_event_name: 'SubagentStop', agent_id: st.agentId, agent_type: st.agentType, agent_transcript_path: sf }]);
+          store.ingestAll([{ session_id: sessionId, transcript_path: file, ts: st.lastTs || Date.now(), via: 'transcript', hook_event_name: 'SubagentStop', agent_id: st.agentId, agent_type: st.agentType, agent_transcript_path: sf }]);
         }
       }
     };

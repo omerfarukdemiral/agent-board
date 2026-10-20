@@ -1,5 +1,6 @@
 // Chat dock: the conversation with one session (no tool noise), always one glance away.
-// Shows the user's prompts and board messages, Claude's board replies and turn wrap-ups.
+// Shows the user's prompts and board messages, Claude's board replies and turn wrap-ups;
+// long wrap-ups show their opening and unfold on demand.
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUp, Bot, ChevronDown, MessageSquare, Radio, User } from 'lucide-react';
 import { cn, isLive } from '../lib';
@@ -43,15 +44,7 @@ export function ChatPanel({ sessions, sessionId, onSession, activity, channelPid
   const live = !!session && isLive(session);
   const channel = live && !!session?.pid && channelPids.includes(session.pid);
   const watchOnly = session?.via === 'transcript';
-  const hint = !session
-    ? 'Oturum yok.'
-    : !live
-      ? 'Bu oturum kapandı.'
-      : watchOnly
-        ? 'Bu oturum yalnızca izleniyor. Buradan yazmak için terminalde kapatıp claude-board ile devam ettir.'
-        : !channel
-          ? 'Bu oturum kanalsız açıldı; yazmak için claude-board ile başlat.'
-          : null;
+  const hint = !session ? 'Oturum yok' : !live ? 'Oturum kapandı' : !channel ? 'Kanal yok: yazmak için oturumu claude-board ile başlat' : null;
 
   return (
     <section className={cn('flex min-h-0 flex-col overflow-hidden rounded-[18px] bg-tray ring-line', className)}>
@@ -75,23 +68,29 @@ export function ChatPanel({ sessions, sessionId, onSession, activity, channelPid
       </header>
 
       <div ref={scroller} className="scroll-thin min-h-0 flex-1 space-y-2.5 overflow-y-auto px-3 py-3">
-        {items.length === 0 && <p className="py-6 text-center text-[13px] text-faint">Bu oturumda henüz konuşma yok.</p>}
+        {items.length === 0 && <p className="py-6 text-center text-[13px] text-faint">Henüz mesaj yok</p>}
         {items.map((it) => (
           <Bubble key={it.id} it={it} />
         ))}
       </div>
 
-      {watchOnly && live && <ResumeHint id={session!.id} />}
-      <Composer key={session?.id} disabled={!channel} hint={hint} onSend={(t) => (session ? onSend(session.id, t) : Promise.resolve(false))} />
+      {watchOnly && live ? (
+        <ResumeHint id={session!.id} />
+      ) : (
+        <Composer key={session?.id} disabled={!channel} hint={hint} onSend={(t) => (session ? onSend(session.id, t) : Promise.resolve(false))} />
+      )}
     </section>
   );
 }
 
+// watch-only: no composer, just the command that makes this session writable
 function ResumeHint({ id }: { id: string }) {
   const cmd = `claude-board --resume ${id}`;
   const [copied, setCopied] = useState(false);
   return (
-    <div className="mx-2 mt-2 flex items-center gap-2 rounded-lg bg-tile px-2.5 py-1.5 ring-line">
+    <div className="border-t border-line p-2">
+    <p className="px-1 pb-1 text-[11px] text-faint">Yazmak için oturumu şununla sürdür:</p>
+    <div className="flex items-center gap-2 rounded-lg bg-tile px-2.5 py-1.5 ring-line">
       <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-text">{cmd}</code>
       <button
         className="shrink-0 text-[11px] text-muted hover:text-ink"
@@ -100,12 +99,27 @@ function ResumeHint({ id }: { id: string }) {
         {copied ? 'Kopyalandı' : 'Kopyala'}
       </button>
     </div>
+    </div>
   );
+}
+
+const CLIP = 320;
+// the opening of a long message: its first paragraph, cut at a sentence when possible
+function opening(text: string) {
+  const first = text.split(/\n\s*\n/)[0];
+  if (first.length <= CLIP) return first;
+  const cut = first.slice(0, CLIP);
+  const dot = cut.lastIndexOf('. ');
+  return (dot > CLIP / 2 ? cut.slice(0, dot + 1) : cut.replace(/\s+\S*$/, '')) + ' …';
 }
 
 function Bubble({ it }: { it: ActivityItem }) {
   const mine = it.kind === 'prompt' || it.kind === 'board-message';
-  const text = String(it.summary || '');
+  const full = String(it.summary || '');
+  const [open, setOpen] = useState(false);
+  const short = opening(full);
+  const clipped = short !== full;
+  const text = open || !clipped ? full : short;
   return (
     <div className={cn('enter flex', mine ? 'justify-end' : 'justify-start')}>
       <div
@@ -119,6 +133,11 @@ function Bubble({ it }: { it: ActivityItem }) {
           {it.kind === 'board-message' ? 'sen · board' : it.kind === 'prompt' ? 'sen · terminal' : it.kind === 'board-reply' ? 'Claude' : 'Claude · terminal'}
         </div>
         {mine ? <span className="whitespace-pre-wrap">{text}</span> : <Md text={text} />}
+        {clipped && (
+          <button onClick={() => setOpen((v) => !v)} className={cn('mt-1 text-[12px] font-medium', mine ? 'text-run' : 'text-muted hover:text-ink')}>
+            {open ? 'Kısalt' : 'Devamı'}
+          </button>
+        )}
       </div>
     </div>
   );

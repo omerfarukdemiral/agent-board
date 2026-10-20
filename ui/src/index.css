@@ -202,3 +202,21 @@ body {
     animation: none;
   }
 }
+/* a running bar with no estimate: a short segment sweeping across */
+@keyframes sweep {
+  from {
+    left: -33%;
+  }
+  to {
+    left: 100%;
+  }
+}
+.bar-indeterminate {
+  animation: sweep 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bar-indeterminate {
+    animation: none;
+    left: 0;
+  }
+}
