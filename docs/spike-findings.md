@@ -59,3 +59,9 @@ Bu oturumda affectUI MCP'si bağlı değil. kartlar shadcn tarzında elle yazıl
 - **bekleyen istekler agent bazında kapatılmalı.** arka plan subagent'ı bitince gelen `<task-notification>` prompt'u (`UserPromptSubmit`) ya da ana turun `Stop`'u, başka bir subagent'ın hâlâ bekleyen izin isteğini kapatmamalı. kapatılırsa hook cevapsız kalır ve o subagent sessizce kilitlenir (1. turda yaşandı, 7+ dakika). artık sadece `SessionEnd`, kendi `SubagentStop`'u ya da (main için) `Stop` kapatıyor.
 - "Bu oturumda hep izin ver" sonrası Claude aynı türdeki bekleyen istekleri kendisi onaylayıp hook'u öldürüyor. kart "başka yerden cevaplandı" oluyor (terminal olmak zorunda değil).
 - 2. tur: 2 paralel subagent, 1 nested soru, 15+ onay, 2 board mesajı. kilitlenme yok, oturum değişimi yok, 29/29 test.
+
+## akış ve inbox (2 eşzamanlı oturum, haiku)
+- görev ↔ agent eşleşmesi: kanal talimatıyla Claude subagent açıklamalarını `#1 …`, `#2 …` diye başlattı, eşleşme kesin oldu. eski kayıtlarda (talimatsız) kelime örtüşmesi 9/9 görevi doğru bağladı; yol kelimeleri parçalanmadan biri kaçıyordu (`test/store.test.js` ↔ `store.test.js`).
+- `inbox` aracı (kanal MCP aracı) talimatla doğru kullanıldı: karar, review ve bilgi ayrımı istendiği gibi; dokümantasyon oturumu kendiliğinden gerçek bir hata bildirdi (silinen en büyük id'nin yeniden kullanılması).
+- inbox'tan "Cevapla" → kanal mesajı → Claude değişikliği uyguladı (CSV ayracı `;`), 59/59 test.
+- görev araçları yeni modellerde varsayılan kapalı; `claude-board` `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` ile açıyor.

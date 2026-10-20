@@ -16,6 +16,11 @@ const send = (m) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', ...m }
 const warn = (...a) => process.stderr.write(`[agent-board channel] ${a.join(' ')}\n`);
 
 const INSTRUCTIONS = [
+  'The user follows this session on the agent-board dashboard and reviews work from its inbox.',
+  'Use the `inbox` tool for anything the user should read or decide: a decision you made on their behalf that they may want to override (kind "decision"), work that needs their review before it can be considered done (kind "review", pass task_id), or a finding, risk or result they need to know (kind "info").',
+  'Keep inbox items rare and worth reading: one clear title, a few lines of body, no routine progress. Do not wait for an answer; continue working.',
+  'For work with more than two steps, keep a task list with TaskCreate/TaskUpdate so the user can follow it on the board.',
+  'When you delegate a task from your task list to a subagent, start the Agent description with the task id, e.g. "#3 Write store tests".',
   'Messages from the agent-board channel are typed by the same user who runs this session, from the agent-board web dashboard.',
   'Treat them like a normal user message: follow them, and if you are mid-task, take them into account at the next sensible point.',
   'Always answer them with the `reply` tool (pass the chat_id from the message), in the language the user wrote in. Keep replies short; the user also sees your normal output on the board.',
@@ -74,11 +79,11 @@ function listen() {
   req.on('error', retry);
 }
 
-function postReply(args) {
+function post(path, payload) {
   return new Promise((resolve) => {
-    const body = JSON.stringify({ pid: CLAUDE_PID, chat_id: args.chat_id || null, text: String(args.text || '') });
+    const body = JSON.stringify({ pid: CLAUDE_PID, ...payload });
     const req = http.request(
-      { host: '127.0.0.1', port: PORT, path: '/channel/reply', method: 'POST', timeout: 3000, headers: { 'content-type': 'application/json' } },
+      { host: '127.0.0.1', port: PORT, path, method: 'POST', timeout: 3000, headers: { 'content-type': 'application/json' } },
       (res) => {
         res.resume();
         res.on('end', () => resolve(res.statusCode === 200));
@@ -93,6 +98,21 @@ function postReply(args) {
 // ---- MCP over stdio ----------------------------------------------------------
 
 const TOOLS = [
+  {
+    name: 'inbox',
+    description:
+      "Put an item in the user's agent-board inbox: something they should read or decide. Use sparingly; it is not a progress log.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', enum: ['decision', 'review', 'info'], description: 'decision: a choice you made that they may override · review: work waiting for their check · info: something they need to know' },
+        title: { type: 'string', description: 'One line, in the language the user writes in' },
+        body: { type: 'string', description: 'A few lines of context: what, why, and what you need from them (short markdown)' },
+        task_id: { type: 'string', description: 'Task list id this item is about, if any' },
+      },
+      required: ['kind', 'title'],
+    },
+  },
   {
     name: 'reply',
     description: 'Send a reply to the user on the agent-board dashboard. Use it to answer every message that arrived through the agent-board channel.',
@@ -127,8 +147,14 @@ async function handle(m) {
     case 'tools/list':
       return send({ id: m.id, result: { tools: TOOLS } });
     case 'tools/call': {
+      if (m.params?.name === 'inbox') {
+        const a = m.params.arguments || {};
+        const ok = await post('/channel/inbox', { kind: a.kind, title: a.title, body: a.body, task_id: a.task_id });
+        return send({ id: m.id, result: { content: [{ type: 'text', text: ok ? 'Posted to the agent-board inbox.' : 'agent-board is not reachable; mention it in your reply instead.' }], isError: !ok } });
+      }
       if (m.params?.name !== 'reply') return send({ id: m.id, error: { code: -32602, message: `unknown tool ${m.params?.name}` } });
-      const ok = await postReply(m.params.arguments || {});
+      const args = m.params.arguments || {};
+      const ok = await post('/channel/reply', { chat_id: args.chat_id || null, text: String(args.text || '') });
       return send({
         id: m.id,
         result: { content: [{ type: 'text', text: ok ? 'Delivered to agent-board.' : 'agent-board is not reachable; the user will see your normal output instead.' }], isError: !ok },

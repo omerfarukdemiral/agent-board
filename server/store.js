@@ -98,6 +98,7 @@ function ensureSession(p) {
       waiting: null, // 'input' when Claude waits for the next prompt
       background: [], // background tasks/workflows reported by Stop
       tasks: {}, // task list from TaskCreate/TaskUpdate/TodoWrite
+      inbox: {}, // things Claude flagged for the user (channel `inbox` tool), keyed by id
       agents: {},
     };
     s.agents.main = newAgent('main', { startedAt: p.ts });
@@ -105,6 +106,7 @@ function ensureSession(p) {
     activity.set(s.id, []);
   }
   if (!s.transcriptPath && p.transcript_path) s.transcriptPath = p.transcript_path;
+  if (!s.inbox) s.inbox = {};
   s.lastEventAt = Math.max(s.lastEventAt || 0, p.ts);
   return s;
 }
@@ -118,8 +120,11 @@ function applyMeta(s, a) {
   const meta = readMeta(s, a.id);
   if (!meta) return;
   if (meta.parentAgentId) a.parentId = meta.parentAgentId;
-  if (meta.description) a.description = meta.description;
   if (meta.agentType) a.type = meta.agentType;
+  if (meta.description && meta.description !== a.description) {
+    a.description = meta.description;
+    linkTasks(s);
+  }
 }
 
 function transcriptFor(s, agentId) {
@@ -163,56 +168,116 @@ function toolFailed(r) {
 
 // --- tasks ------------------------------------------------------------------
 
+// A task's assignee is a guess (Claude Code doesn't record who works on what). Strength order:
+// explicit "#id" in a subagent's description > the subagent updating the task itself >
+// word overlap between task and subagent description > whoever last moved the task.
+const ASSIGN_RANK = { explicit: 4, self: 3, match: 2, updater: 1 };
+const STOP = new Set(['the', 'and', 'for', 'with', 'ile', 'için', 've', 'bir', 'bu', 'şu', 'olan', 'yap', 'yaz', 'run', 'task', 'görev']);
+// paths count whole and by their parts, so "test/store.test.js" also matches "store.test.js"
+function words(text) {
+  const out = new Set();
+  for (const w of String(text || '').toLocaleLowerCase('tr').split(/[^\p{L}\p{N}./_-]+/u)) {
+    for (const part of [w, ...(/[/.]/.test(w) ? w.split(/[/.]/) : [])]) if (part.length > 2 && !STOP.has(part)) out.add(part);
+  }
+  return out;
+}
+
+function assign(t, agentId, how) {
+  if (t.assignee && ASSIGN_RANK[t.assigneeBy] > ASSIGN_RANK[how]) return;
+  t.assignee = agentId;
+  t.assigneeBy = how;
+}
+
+function linkTasks(s) {
+  const subs = Object.values(s.agents).filter((a) => a.id !== 'main' && a.description);
+  for (const a of subs) {
+    const m = a.description.match(/#(\d+)\b/);
+    if (m && s.tasks[m[1]]) assign(s.tasks[m[1]], a.id, 'explicit');
+  }
+  for (const t of Object.values(s.tasks)) {
+    if (t.assignee && ASSIGN_RANK[t.assigneeBy] >= ASSIGN_RANK.match) continue;
+    const tw = words(`${t.subject} ${t.activeForm || ''}`);
+    let best = null;
+    let score = 0;
+    for (const a of subs) {
+      const aw = words(a.description);
+      let hit = 0;
+      for (const w of aw) if (tw.has(w)) hit++;
+      const sc = hit / Math.max(1, Math.min(tw.size, aw.size));
+      if (hit >= 2 && sc > score) [best, score] = [a, sc];
+    }
+    if (best && score >= 0.4) assign(t, best.id, 'match');
+  }
+}
+
 function applyTasks(s, p, agentId) {
   const input = p.tool_input || {};
   const res = p.tool_response && typeof p.tool_response === 'object' ? p.tool_response : {};
   const now = p.ts;
+  const status = (t, st) => {
+    if (!st || st === t.status) return;
+    t.status = st;
+    if (st === 'in_progress' && !t.startedAt) t.startedAt = now;
+    if (st === 'completed') t.completedAt = now;
+  };
   switch (p.tool_name) {
     case 'TodoWrite': {
       for (const k of Object.keys(s.tasks)) if (s.tasks[k].source === 'todo' && s.tasks[k].agentId === agentId) delete s.tasks[k];
-      (input.todos || []).forEach((t, i) => {
+      (input.todos || []).forEach((td, i) => {
         const id = `todo:${agentId}:${i}`;
-        s.tasks[id] = { id, subject: t.content || t.subject || '', activeForm: t.activeForm || null, status: t.status || 'pending', agentId, source: 'todo', updatedAt: now };
+        const t = { id, subject: td.content || td.subject || '', activeForm: td.activeForm || null, status: 'pending', agentId, source: 'todo', createdAt: now, updatedAt: now };
+        status(t, td.status || 'pending');
+        assign(t, agentId, agentId === 'main' ? 'updater' : 'self');
+        s.tasks[id] = t;
       });
-      return;
+      break;
     }
     case 'TaskCreate': {
-      const t = res.task || res;
-      const id = String(t.id || t.taskId || p.tool_use_id);
+      const r = res.task || res;
+      const id = String(r.id || r.taskId || p.tool_use_id);
       s.tasks[id] = {
         id,
-        subject: input.subject || t.subject || '',
+        subject: input.subject || r.subject || '',
         description: input.description || null,
         activeForm: input.activeForm || null,
         status: 'pending',
-        agentId,
+        agentId, // creator
+        assignee: null,
         source: 'task',
+        createdAt: now,
         updatedAt: now,
       };
-      return;
+      break;
     }
     case 'TaskUpdate': {
       const id = String(input.taskId || input.task_id || input.id || '');
       if (!id) return;
       if (input.status === 'deleted') return void delete s.tasks[id];
-      const t = (s.tasks[id] = s.tasks[id] || { id, subject: `#${id}`, status: 'pending', agentId, source: 'task' });
-      if (input.status) t.status = input.status;
+      const t = (s.tasks[id] = s.tasks[id] || { id, subject: `#${id}`, status: 'pending', agentId, source: 'task', createdAt: now });
+      status(t, input.status);
       if (input.subject) t.subject = input.subject;
       if (input.activeForm) t.activeForm = input.activeForm;
       if (input.owner) t.owner = input.owner;
+      if (input.status) assign(t, agentId, agentId === 'main' ? 'updater' : 'self');
       t.updatedAt = now;
-      return;
+      break;
     }
     case 'TaskList': {
       const list = Array.isArray(res.tasks) ? res.tasks : null;
       if (!list) return;
-      for (const t of list) {
-        const id = String(t.id);
-        s.tasks[id] = { ...(s.tasks[id] || { agentId, source: 'task' }), id, subject: t.subject || s.tasks[id]?.subject || '', status: t.status || 'pending', updatedAt: now };
+      for (const r of list) {
+        const id = String(r.id);
+        const t = (s.tasks[id] = s.tasks[id] || { id, agentId, source: 'task', status: 'pending', createdAt: now });
+        t.subject = r.subject || t.subject || '';
+        status(t, r.status);
+        t.updatedAt = now;
       }
-      return;
+      break;
     }
+    default:
+      return;
   }
+  linkTasks(s);
 }
 
 // --- reducer ----------------------------------------------------------------
@@ -341,6 +406,12 @@ function reduce(p) {
         duration: p.duration_ms != null ? p.duration_ms : prev ? p.ts - prev.ts : undefined,
       });
       applyTasks(s, p, agentId);
+      // the channel can't tell which agent called its inbox tool; the hook can
+      if (p.tool_name === 'mcp__agent-board__inbox' && agentId !== 'main') {
+        const title = p.tool_input && p.tool_input.title;
+        const it = Object.values(s.inbox).find((x) => x.title === String(title || '').slice(0, 300) && x.agentId === 'main' && p.ts - x.createdAt < 60000);
+        if (it) it.agentId = agentId;
+      }
       // An Agent call that returned tells us exactly who spawned whom.
       const child = p.tool_name === 'Agent' && p.tool_response && p.tool_response.agentId;
       if (child) {
@@ -356,6 +427,14 @@ function reduce(p) {
     }
 
     // items produced by the board itself (approvals, board ↔ Claude messages); persisted like hook events
+    // inbox items Claude posted, or the user's read/answer marks on them
+    case 'BoardInbox': {
+      const it = p.item;
+      if (!it || !it.id) return null;
+      s.inbox[it.id] = { ...(s.inbox[it.id] || {}), ...it };
+      break;
+    }
+
     case 'BoardActivity':
       if (!p.item || !p.item.id) return null;
       upsertActivity(s, p.item);
@@ -436,6 +515,11 @@ function ingest(p) {
 }
 
 // Lets other modules (approvals, channels) add items to a session's activity log.
+function addInbox(sessionId, item) {
+  if (!sessions.has(sessionId)) return null;
+  return ingest({ session_id: sessionId, hook_event_name: 'BoardInbox', item, ts: Date.now() });
+}
+
 function addActivity(sessionId, item) {
   if (!sessions.has(sessionId)) return;
   ingest({ session_id: sessionId, hook_event_name: 'BoardActivity', item, ts: item.ts || Date.now() });
@@ -490,6 +574,7 @@ function restore() {
 }
 
 module.exports = {
+  addInbox,
   alive,
   sweepDead,
   ingest,

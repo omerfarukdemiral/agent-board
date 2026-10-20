@@ -3,6 +3,8 @@
 # Every argument is passed through to claude, e.g. `claude-board --resume`.
 # The dev-channel flag shows a one-time warning screen per launch; press Enter to continue.
 SELF=$(readlink -f "$0" 2>/dev/null || echo "$0")
+# the board's flow view is built from the task list; newer models only get the task tools on opt-in
+export CLAUDE_CODE_ENABLE_TODO_TOOLS="${CLAUDE_CODE_ENABLE_TODO_TOOLS:-1}"
 AB=$(cd "$(dirname "$SELF")/.." && pwd)
 exec claude \
   --plugin-dir "$AB" \

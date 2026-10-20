@@ -51,7 +51,27 @@ function reply({ pid, chat_id, text }) {
   return { ok: true };
 }
 
+// Claude → board inbox (the channel's inbox tool)
+const KINDS = new Set(['decision', 'review', 'info']);
+function inbox({ pid, kind, title, body, task_id }) {
+  const s = sessionForPid(Number(pid));
+  if (!s || !title) return { ok: false, error: s ? 'title required' : 'session not found' };
+  const item = {
+    id: `inb_${crypto.randomUUID().slice(0, 8)}`,
+    kind: KINDS.has(kind) ? kind : 'info',
+    title: String(title).slice(0, 300),
+    body: body ? String(body).slice(0, 6000) : null,
+    taskId: task_id != null && task_id !== '' ? String(task_id).replace(/^#/, '') : null,
+    agentId: 'main',
+    createdAt: Date.now(),
+    status: 'unread',
+  };
+  store.addInbox(s.id, item);
+  return { ok: true, id: item.id };
+}
+
 module.exports = {
+  inbox,
   connect,
   sendMessage,
   reply,

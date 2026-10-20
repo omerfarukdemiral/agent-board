@@ -81,7 +81,16 @@ export function useBoard() {
     return r.ok;
   }, []);
 
-  return { sessions, activity, requests, connected, channelPids, decide, sendMessage };
+  const ackInbox = useCallback(async (sessionId: string, id: string, status: 'read' | 'answered' = 'read') => {
+    const r = await fetch('/inbox/ack', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-agent-board-token': token() },
+      body: JSON.stringify({ sessionId, id, status }),
+    });
+    return r.ok;
+  }, []);
+
+  return { sessions, activity, requests, connected, channelPids, decide, sendMessage, ackInbox };
 }
 
 export function useNow(active: boolean) {

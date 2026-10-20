@@ -110,6 +110,25 @@ const server = http.createServer((req, res) => {
     });
   }
 
+  if (req.method === 'POST' && url.pathname === '/channel/inbox') {
+    return readJson(req, (d) => {
+      if (!d || !d.pid) return json(res, 400, { error: 'pid required' });
+      const r = channels.inbox(d);
+      json(res, r.ok ? 200 : 404, r);
+    });
+  }
+
+  // the user marks an inbox item read; token-protected like decisions
+  if (req.method === 'POST' && url.pathname === '/inbox/ack') {
+    return readJson(req, (d) => {
+      if (req.headers['x-agent-board-token'] !== TOKEN) return json(res, 403, { error: 'bad token' });
+      const s = d && store.getSession(d.sessionId);
+      if (!s || !s.inbox[d.id]) return json(res, 404, { error: 'item not found' });
+      store.addInbox(s.id, { id: d.id, status: d.status === 'answered' ? 'answered' : 'read', readAt: Date.now() });
+      json(res, 200, { ok: true });
+    });
+  }
+
   // board → Claude message; same token rule as /decision
   if (req.method === 'POST' && url.pathname === '/message') {
     return readJson(req, (d) => {

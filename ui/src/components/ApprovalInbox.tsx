@@ -1,7 +1,7 @@
-// Approval inbox: live permission requests and AskUserQuestion prompts from every session.
+// Approval cards for live permission requests and AskUserQuestion prompts (used by the project inbox).
 // Visual language adapted from affectUI's free decision-inbox (MIT): gray tray, card on top, light primary button.
 import { useState } from 'react';
-import { AlertTriangle, Check, CircleCheck, MessageCircleQuestion, ShieldQuestion, Terminal, X } from 'lucide-react';
+import { Check, MessageCircleQuestion, ShieldQuestion, Terminal, X } from 'lucide-react';
 import { agentName, ago, cn, projectName, rel } from '../lib';
 import type { ApprovalRequest, Decision, Question, Session } from '../types';
 
@@ -20,45 +20,7 @@ const RESOLVED_LABEL: Record<string, string> = {
   elsewhere: 'Başka yerden',
 };
 
-export function ApprovalInbox({ requests, sessions, now, onDecide, onOpenSession }: Props) {
-  const [showRecent, setShowRecent] = useState(false);
-  const pending = requests.filter((r) => r.status === 'pending').sort((a, b) => a.createdAt - b.createdAt);
-  const recent = requests
-    .filter((r) => r.status !== 'pending')
-    .sort((a, b) => (b.resolvedAt || 0) - (a.resolvedAt || 0))
-    .slice(0, 6);
-
-  // nothing to decide: a single quiet line instead of a panel
-  if (pending.length === 0) {
-    return (
-      <section className="rounded-2xl bg-tray px-3.5 py-2.5 ring-line">
-        <button className="flex w-full items-center gap-2 text-left text-[13px] text-muted" onClick={() => setShowRecent((v) => !v)} disabled={!recent.length}>
-          <CircleCheck className="size-4 text-ok" />
-          Bekleyen karar yok
-          {recent.length > 0 && <span className="ml-auto text-[11px] text-faint">{showRecent ? 'gizle' : `son ${recent.length} karar`}</span>}
-        </button>
-        {showRecent && <RecentList recent={recent} />}
-      </section>
-    );
-  }
-
-  return (
-    <section className="rounded-[22px] bg-tray p-1.5 ring-line">
-      <header className="flex items-center gap-2 px-3.5 pb-2 pt-2 text-sm font-medium text-alert" aria-live="polite">
-        <AlertTriangle className="size-4" />
-        {pending.length} karar seni bekliyor
-      </header>
-
-      <div className="overflow-hidden rounded-2xl bg-card shadow-[0_1px_2px_rgba(0,0,0,.4)] ring-line">
-        {pending.map((r, i) => (
-          <RequestCard key={r.id} r={r} session={sessions[r.sessionId]} now={now} first={i === 0} onDecide={onDecide} onOpenSession={onOpenSession} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function RecentList({ recent }: { recent: ApprovalRequest[] }) {
+export function RecentList({ recent }: { recent: ApprovalRequest[] }) {
   return (
     <ul className="mt-1.5 space-y-0.5">
       {recent.map((r) => (
@@ -72,7 +34,7 @@ function RecentList({ recent }: { recent: ApprovalRequest[] }) {
   );
 }
 
-function RequestCard({ r, session, now, first, onDecide, onOpenSession }: { r: ApprovalRequest; session?: Session; first: boolean } & Omit<Props, 'requests' | 'sessions'>) {
+export function RequestCard({ r, session, now, first, onDecide, onOpenSession }: { r: ApprovalRequest; session?: Session; first: boolean } & Omit<Props, 'requests' | 'sessions'>) {
   const [busy, setBusy] = useState(false);
   const [denying, setDenying] = useState(false);
   const [reason, setReason] = useState('');

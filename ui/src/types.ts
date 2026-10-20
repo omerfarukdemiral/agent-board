@@ -22,9 +22,26 @@ export type Task = {
   description?: string | null;
   activeForm?: string | null;
   status: 'pending' | 'in_progress' | 'completed' | string;
-  agentId: string;
+  agentId: string; // creator
+  assignee?: string | null;
+  assigneeBy?: 'explicit' | 'self' | 'match' | 'updater';
   owner?: string;
+  createdAt?: number;
+  startedAt?: number;
+  completedAt?: number;
   updatedAt: number;
+};
+
+export type InboxItem = {
+  id: string;
+  kind: 'decision' | 'review' | 'info';
+  title: string;
+  body: string | null;
+  taskId: string | null;
+  agentId: string;
+  createdAt: number;
+  status: 'unread' | 'read' | 'answered';
+  readAt?: number;
 };
 
 export type BackgroundTask = { id?: string; type?: string; name?: string; description?: string; status?: string; [k: string]: unknown };
@@ -40,6 +57,7 @@ export type Session = {
   pid?: number;
   background: BackgroundTask[];
   tasks: Record<string, Task>;
+  inbox: Record<string, InboxItem>;
   agents: Record<string, Agent>;
 };
 

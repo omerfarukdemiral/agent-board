@@ -4,13 +4,15 @@ Kurulum sayfası: https://agent-board.ofd.works
 
 Claude Code terminalde (cmux, iTerm, ne kullanıyorsan) her zamanki gibi çalışır. agent-board hook'larla dinler, tarayıcıda canlı bir pano gösterir. Onay ya da seçim gereken anlarda cevabı oradan verebilirsin, çalışan oturuma oradan mesaj da yazabilirsin.
 
-- **agent ağacı:** orkestratör ve altında subagent'lar (nested dahil). durum, süre, araç sayısı, anlık araç, model, token ve api eşdeğeri maliyet.
-- **onay kutusu:** izin istekleri (Bash komutu, Edit diff'i, Write içeriği önizlemeli) ve `AskUserQuestion` soruları. tüm açık oturumlardan tek kutuda toplanır.
-- **mesaj kutusu:** `claude-board` ile açılan oturumlara board'dan yazarsın. Claude mesajı terminaldeki oturumunda alır, board'a `reply` aracıyla cevap verir.
-- **etkinlik akışı:** prompt'lar, araç çağrıları (argüman ve sonuçlarıyla), subagent'lar, cevaplar. agent kartına tıklayınca akış o agent'a filtrelenir.
-- **görevler:** `TaskCreate`/`TaskUpdate`/`TodoWrite` ile kurulan liste, canlı ilerleme.
-- **arka plan işleri:** tur sonunda Claude'un bildirdiği workflow'lar ve arka plan agent'ları.
-- **dikkat:** bekleyen karar sayısı sekme başlığında, oturum sekmesinde ve (izin verirsen) masaüstü bildiriminde görünür.
+Genelden özele: **Proje → Oturum → Agent → Görev.**
+
+- **proje ağacı:** solda projeler ve oturumları; her oturumda durum (çalışıyor / seni bekliyor / boşta / bitti) ve kaç orkestratör, kaç subagent olduğu.
+- **akış panosu:** projedeki görevler Yapılacak / Çalışılıyor / Review / Bitti sütunlarında akar, her kartta işi yapan agent görünür. İki gruplama: **Görev → Agent** ya da **Agent → Görev** (her agent bir şerit). Göreve bağlanmamış subagent'lar da "agent işi" kartı olarak akar. Review = seni bekleyen işler: yürüten agent onay bekliyorsa ya da Claude review istediyse.
+- **inbox (proje bazında):** izin istekleri ve sorular, Claude'un senin yerine verip itiraz edebileceğin **kararlar**, review bekleyen işler ve okuman gereken **bilgi notları**. "Okudum" ile kapatır, "Cevapla" ile çalışan oturuma yazarsın.
+- **orkestrasyon:** bir oturumun agent ağacı (nested dahil), canlı etkinlik akışı ve mesaj kutusu. Akıştaki bir karta tıklayınca o agent'a inilir.
+- **sayaçlar ve maliyet:** canlı oturum, orkestratör, subagent ve görev sayıları; agent başına api eşdeğeri maliyet.
+
+Görev ile agent eşleşmesi: Claude subagent açıklamasını görev numarasıyla başlatırsa (`#3 …`) kesin; yoksa görev başlığı ile subagent açıklaması arasındaki kelime örtüşmesinden tahmin edilir. Görev listesi için `claude-board` görev araçlarını açar (`CLAUDE_CODE_ENABLE_TODO_TOOLS=1`), inbox ve görev numarası kurallarını da kanal üzerinden Claude'a anlatır.
 
 ## kurulum
 
