@@ -1,5 +1,5 @@
 import { Bot, Clock, Network, Wrench } from 'lucide-react';
-import { cn, compact, displayName, duration, modelLabel, usd } from '../lib';
+import { cn, compact, displayName, duration, modelLabel, prettyTool, usd } from '../lib';
 import type { Agent } from '../types';
 import { ThinkingLoader } from './affect/thinking-loader';
 
@@ -68,9 +68,9 @@ export function AgentCard({ agent: a, now, sessionEnded, waiting, selected, onSe
       {live && (
         <div className="mt-2 flex h-7 items-center overflow-hidden rounded-md bg-tile px-2 ring-line">
           {status === 'waiting' ? (
-            <span className="truncate text-[11.5px] text-alert">Onayın bekleniyor{a.currentTool ? ` · ${a.currentTool}` : ''}</span>
+            <span className="truncate text-[11.5px] text-alert">Onayın bekleniyor{a.currentTool ? ` · ${prettyTool(a.currentTool)}` : ''}</span>
           ) : (
-            <ThinkingLoader variant="plain" size="sm" phases={[a.currentTool || 'Düşünüyor']} className="min-w-0 truncate" />
+            <ThinkingLoader variant="plain" size="sm" phases={[a.currentTool ? prettyTool(a.currentTool) : 'Düşünüyor']} className="min-w-0 truncate" />
           )}
         </div>
       )}

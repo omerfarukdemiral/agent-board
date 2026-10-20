@@ -1,7 +1,7 @@
 // Live activity: prompts, replies, subagent spawns and tool calls (affectUI ToolCallCard/ToolCallGroup, free/MIT).
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Bot, Check, MessageSquare, Radio, ShieldQuestion, Terminal, User, X } from 'lucide-react';
-import { agentName, cn } from '../lib';
+import { agentName, cn, prettyTool } from '../lib';
 import { Md } from './Md';
 import type { ActivityItem, Session } from '../types';
 import { ToolCallCard, ToolCallGroup } from './affect/tool-call-card';
@@ -102,7 +102,7 @@ function ToolBlock({ b, session }: { b: Extract<Block, { kind: 'tools' }>; sessi
   const cards = b.items.map((i) => (
     <ToolCallCard
       key={i.id}
-      name={i.name || 'tool'}
+      name={prettyTool(i.name || 'tool')}
       summary={i.summary}
       status={tcStatus(i.status)}
       args={i.args}

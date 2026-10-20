@@ -26,7 +26,7 @@ const KIND = {
   info: { label: 'Bilgi', icon: Info, cls: 'text-muted bg-tile' },
 } as const;
 
-type Entry = { item: InboxItem; session: Session };
+export type Entry = { item: InboxItem; session: Session };
 
 export function ProjectInbox({ sessions, requests, now, channelPids, multiSession, onDecide, onAck, onReply, onOpenSession }: Props) {
   const [showRead, setShowRead] = useState(false);
@@ -44,8 +44,8 @@ export function ProjectInbox({ sessions, requests, now, channelPids, multiSessio
   const open = pending.length + unread.length;
 
   return (
-    <section className="rounded-[22px] bg-tray p-1.5 ring-line">
-      <header className={cn('flex items-center gap-2 px-3 pb-2 pt-2 text-sm font-medium', blocking ? 'text-alert' : 'text-muted')} aria-live="polite">
+    <section className={cn('rounded-[22px] bg-tray ring-line', open ? 'p-1.5' : 'px-1.5 py-0.5')}>
+      <header className={cn('flex items-center gap-2 px-3 text-sm font-medium', open ? 'pb-2 pt-2' : 'py-2', blocking ? 'text-alert' : 'text-muted')} aria-live="polite" title={open ? undefined : 'Claude izin istediğinde, bir kararı sana bıraktığında ya da okuman gereken bir şey olduğunda burada belirir.'}>
         {blocking ? <AlertTriangle className="size-4" /> : notes ? <Info className="size-4" /> : <CircleCheck className="size-4 text-ok" />}
         Inbox
         <span className="font-normal">
@@ -79,7 +79,6 @@ export function ProjectInbox({ sessions, requests, now, channelPids, multiSessio
         </div>
       )}
 
-      {open === 0 && <p className="px-3 pb-2 text-[12.5px] text-faint">Claude izin istediğinde, bir kararı sana bıraktığında ya da okuman gereken bir şey olduğunda burada belirir.</p>}
 
       {(read.length > 0 || recentDecisions.length > 0) && (
         <div className="px-3 pb-1.5 pt-1">
@@ -104,7 +103,7 @@ export function ProjectInbox({ sessions, requests, now, channelPids, multiSessio
   );
 }
 
-function KindChip({ kind, small }: { kind: InboxItem['kind']; small?: boolean }) {
+export function KindChip({ kind, small }: { kind: InboxItem['kind']; small?: boolean }) {
   const k = KIND[kind] ?? KIND.info;
   const Icon = k.icon;
   return (
@@ -115,7 +114,7 @@ function KindChip({ kind, small }: { kind: InboxItem['kind']; small?: boolean })
   );
 }
 
-function ItemCard({ e, now, multiSession, canReply, onAck, onReply }: { e: Entry; now: number; multiSession: boolean; canReply: boolean } & Pick<Props, 'onAck' | 'onReply'>) {
+export function ItemCard({ e, now, multiSession, canReply, onAck, onReply }: { e: Entry; now: number; multiSession: boolean; canReply: boolean } & Pick<Props, 'onAck' | 'onReply'>) {
   const { item, session } = e;
   const [replying, setReplying] = useState(false);
   const [text, setText] = useState('');

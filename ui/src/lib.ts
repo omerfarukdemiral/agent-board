@@ -78,3 +78,39 @@ export function rel(text: string | undefined, cwd: string | undefined) {
   for (const r of [cwd, cwd.replace(/^\/private(?=\/)/, '')]) out = out.split(r + '/').join('').split(r).join('.');
   return out;
 }
+
+// ---- session state, one rule for every screen ------------------------------------------
+
+export type SessionState = 'waiting' | 'working' | 'idle' | 'ended';
+const QUIET_MS = 3 * 60 * 1000; // no event for this long: nothing is really running, whatever the last event said
+
+export function sessionState(s: Session, waiting: number, now: number): SessionState {
+  if (s.endedAt) return 'ended';
+  if (waiting > 0) return 'waiting';
+  const running = Object.values(s.agents).some((a) => a.status === 'running');
+  return running && now - s.lastEventAt < QUIET_MS ? 'working' : 'idle';
+}
+
+export const STATE_LABEL: Record<SessionState, string> = { waiting: 'seni bekliyor', working: 'çalışıyor', idle: 'boşta', ended: 'kapandı' };
+export const STATE_DOT: Record<SessionState, string> = { waiting: 'bg-alert pulse-dot', working: 'bg-run pulse-dot', idle: 'bg-ok', ended: 'bg-faint' };
+
+// mcp__plugin_playwright_playwright__browser_click {…} → playwright · browser_click {…}
+export const prettyTool = (text: string) =>
+  text.replace(/\bmcp__([A-Za-z0-9_-]+?)__([A-Za-z0-9_-]+)/g, (_, server: string, tool: string) => `${server.split(/[_-]/).pop()} · ${tool}`);
+
+// What the session is doing right now, as one short line
+export function nowDoing(s: Session, state: SessionState): string | null {
+  if (state !== 'working' && state !== 'waiting') return null;
+  const running = Object.values(s.agents).filter((a) => a.status === 'running');
+  const main = s.agents.main;
+  const pick = (main?.status === 'running' && main.currentTool ? main : running.find((a) => a.currentTool)) || main;
+  const action = pick?.currentTool || pick?.lastAction;
+  return action ? prettyTool(rel(action, s.cwd)) : null;
+}
+
+export function runningCount(s: Session) {
+  const subs = Object.values(s.agents).filter((a) => a.id !== 'main');
+  return { subs: subs.length, running: subs.filter((a) => a.status === 'running').length };
+}
+
+export const sessionCost = (s: Session) => Object.values(s.agents).reduce((n, a) => n + (a.costUsd ?? 0), 0);
