@@ -74,3 +74,9 @@ Bu oturumda affectUI MCP'si bağlı değil. kartlar shadcn tarzında elle yazıl
 - arka plan subagent'larında Agent aracı hemen dönüyor; açıklama bu yoldan gelince eşleşme bir sonraki olaya kadar gecikiyordu (aynı iş birkaç saniye iki kart). artık o anda eşleşiyor.
 - inbox, oturumlar arası entegrasyon sorunlarını yakaladı (lig fikstürü core'da yok → API'de 404).
 - bilinen sınır: sunucu kapalıyken gelen hook olayları kaybolur (hook'lar sessizce vazgeçer).
+
+## transcript'ten izleme (hook'suz oturumlar)
+- her asistan satırı tek içerik bloğu; aynı mesajın satırları aynı `message.id`'yi paylaşır, tur sonu `stop_reason: end_turn`. kullanıcı satırları: gerçek prompt (string/text), `tool_result` + yapılandırılmış `toolUseResult` (hook'taki `tool_response` ile aynı şekil), ya da `isMeta` (skill içerikleri vb., atlanır).
+- transcript'ler yüzlerce MB olabiliyor (bu geliştirme oturumu 26 MB, `api-request-blob` satırları megabaytlarca). tümünü okumak sunucuyu 1,28 GB'a çıkardı; 4 MB'lık parçalar + JSON.parse'tan önce satır başına bakarak eleme + araç girdilerini kırpma ile tepe 329 MB, oturunca 80 MB. maliyet hesabı değişmedi (cost-state ile birebir).
+- canlılık: cmux her `claude`'u `--session-id <uuid>` ile başlatıyor; `ps` çıktısından oturum ↔ pid eşleşiyor. eşleşmeyen oturumlar 15 dk sessizlikten sonra kapandı sayılır.
+- gecikme: kendi araç çağrım board'da ≤5 sn içinde göründü (tarama 2,5 sn).

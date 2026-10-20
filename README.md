@@ -26,6 +26,13 @@ npm run setup
 
 `setup` arayüzü derler ve `claude-board` komutunu `~/.local/bin`'e bağlar. `git pull` sonrası tekrar çalıştır.
 
+## açık oturumları kurulumsuz görmek
+
+Board, makinedeki Claude Code oturumlarını transcript'lerinden de okur: `claude`, cmux ya da başka bir yoldan açılmış, hook'suz oturumlar da son 2 saat içinde yazdılarsa kendiliğinden belirir. Bu oturumlar **salt izlemedir** (sol ağaçta göz ikonu): ağaç, akış, görevler, maliyet ve sohbet görünür; onay vermek ve mesaj göndermek için oturumu `claude-board --resume <id>` ile devam ettir. Canlılık, `ps` çıktısındaki `--session-id` ile Claude sürecine bakılarak anlaşılır.
+
+- kapatmak: `AGENT_BOARD_TRANSCRIPTS=0`
+- pencere: `AGENT_BOARD_TRANSCRIPT_HOURS` (varsayılan 2)
+
 ## bir projede kullanmak
 
 **`claude-board` (önerilen).** Projenin klasöründe `claude` yerine bunu yaz. Bütün argümanlar claude'a geçer (`claude-board --resume` gibi). Hook'ları, kanal sunucusunu ve channels bayrağını birlikte yükler. Her açılışta "Loading development channels" uyarısı çıkar, **Enter** ile geçilir. Projede hiçbir dosya değişmez.
@@ -60,6 +67,8 @@ npm --prefix ~/tools/agent-board run -s settings > .claude/settings.local.json
 | `AGENT_BOARD_HOME` | `~/.agent-board` | olay kayıtları (`sessions/*.jsonl`), log |
 | `AGENT_BOARD_OPEN` | — | `0`: tarayıcıyı hiç açma, `1`: her oturumda aç |
 | `AGENT_BOARD_APPROVALS` | — | `0`: onayları board'a taşıma, sadece izle |
+| `AGENT_BOARD_TRANSCRIPTS` | — | `0`: hook'suz oturumları transcript'ten okuma |
+| `AGENT_BOARD_TRANSCRIPT_HOURS` | `2` | transcript'i bu kadar saat içinde yazılmış oturumlar okunur |
 
 ## güvenlik
 
@@ -85,7 +94,7 @@ bin/        claude-board: claude + plugin + kanal + channels bayrağı
 channel/    server.js: bağımlılıksız MCP kanal sunucusu (board ↔ Claude)
 scripts/    setup.js (derle + bağla) · settings.js (proje ayarı üretir)
 hooks/      emit.sh (curl, ~15ms) · permission.sh (long-poll) · ensure-server.js · hooks.json (plugin)
-server/     index.js (http + SSE + statik) · store.js (state, jsonl) · approvals.js · channels.js · cost.js · pricing.json
+server/     index.js (http + SSE + statik) · store.js (state, jsonl) · approvals.js · channels.js · transcripts.js · cost.js · pricing.json
 ui/         vite + react 19 + tailwind · src/components/affect/ = affectUI ücretsiz bileşenleri (MIT)
 docs/       spike-findings.md: gerçek payload'lardan çıkan bulgular
 ```

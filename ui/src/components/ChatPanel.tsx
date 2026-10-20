@@ -42,7 +42,16 @@ export function ChatPanel({ sessions, sessionId, onSession, activity, channelPid
 
   const live = !!session && isLive(session);
   const channel = live && !!session?.pid && channelPids.includes(session.pid);
-  const hint = !session ? 'Oturum yok.' : !live ? 'Bu oturum kapandı.' : !channel ? 'Bu oturum kanalsız açıldı; yazmak için claude-board ile başlat.' : null;
+  const watchOnly = session?.via === 'transcript';
+  const hint = !session
+    ? 'Oturum yok.'
+    : !live
+      ? 'Bu oturum kapandı.'
+      : watchOnly
+        ? 'Bu oturum yalnızca izleniyor. Buradan yazmak için terminalde kapatıp claude-board ile devam ettir.'
+        : !channel
+          ? 'Bu oturum kanalsız açıldı; yazmak için claude-board ile başlat.'
+          : null;
 
   return (
     <section className={cn('flex min-h-0 flex-col overflow-hidden rounded-[18px] bg-tray ring-line', className)}>
@@ -72,8 +81,25 @@ export function ChatPanel({ sessions, sessionId, onSession, activity, channelPid
         ))}
       </div>
 
+      {watchOnly && live && <ResumeHint id={session!.id} />}
       <Composer key={session?.id} disabled={!channel} hint={hint} onSend={(t) => (session ? onSend(session.id, t) : Promise.resolve(false))} />
     </section>
+  );
+}
+
+function ResumeHint({ id }: { id: string }) {
+  const cmd = `claude-board --resume ${id}`;
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="mx-2 mt-2 flex items-center gap-2 rounded-lg bg-tile px-2.5 py-1.5 ring-line">
+      <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-text">{cmd}</code>
+      <button
+        className="shrink-0 text-[11px] text-muted hover:text-ink"
+        onClick={() => navigator.clipboard?.writeText(cmd).then(() => (setCopied(true), setTimeout(() => setCopied(false), 1500)))}
+      >
+        {copied ? 'Kopyalandı' : 'Kopyala'}
+      </button>
+    </div>
   );
 }
 

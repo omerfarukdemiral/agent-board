@@ -59,20 +59,22 @@ class TranscriptMeter {
     this.costState = null;
   }
 
-  // Reads only bytes appended since the last call. Unparseable lines are skipped.
+  // Reads only bytes appended since the last call, 4 MB at a time. Unparseable lines are skipped.
   read() {
     let fd;
     try {
       fd = fs.openSync(this.file, 'r');
       const size = fs.fstatSync(fd).size;
       if (size < this.offset) Object.assign(this, { offset: 0, rest: '', messages: new Map() });
-      if (size === this.offset) return this;
-      const chunk = Buffer.alloc(size - this.offset);
-      fs.readSync(fd, chunk, 0, chunk.length, this.offset);
-      this.offset = size;
-      const lines = (this.rest + chunk.toString('utf8')).split('\n');
-      this.rest = lines.pop();
-      for (const line of lines) this.ingest(line);
+      while (this.offset < size) {
+        const len = Math.min(4 * 1024 * 1024, size - this.offset);
+        const chunk = Buffer.alloc(len);
+        fs.readSync(fd, chunk, 0, len, this.offset);
+        this.offset += len;
+        const lines = (this.rest + chunk.toString('utf8')).split('\n');
+        this.rest = lines.pop();
+        for (const line of lines) this.ingest(line);
+      }
     } catch {
       // missing or unreadable transcript: keep whatever we had
     } finally {
@@ -82,7 +84,8 @@ class TranscriptMeter {
   }
 
   ingest(line) {
-    if (!line) return;
+    // usage lives on assistant lines and the cost-state line; skip the megabyte blobs unparsed
+    if (!line || !/"role":"assistant"|"type":"cost-state"/.test(line.slice(0, 600))) return;
     let e;
     try {
       e = JSON.parse(line);

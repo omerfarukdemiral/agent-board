@@ -56,6 +56,7 @@ export type Session = {
   lastEventAt: number;
   waiting: 'input' | null;
   pid?: number;
+  via?: 'hook' | 'transcript'; // transcript = read from disk only: no approvals, no messages
   background: BackgroundTask[];
   tasks: Record<string, Task>;
   inbox: Record<string, InboxItem>;

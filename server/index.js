@@ -6,6 +6,7 @@ const path = require('path');
 const store = require('./store');
 const approvals = require('./approvals');
 const channels = require('./channels');
+const transcripts = require('./transcripts');
 
 const PORT = Number(process.env.AGENT_BOARD_PORT) || 4317;
 const UI_DIR = path.join(__dirname, '..', 'ui', 'dist');
@@ -181,6 +182,7 @@ const server = http.createServer((req, res) => {
 });
 
 const restored = store.restore();
+transcripts.start();
 setInterval(() => {
   store.sweepDead();
   approvals.sweepDead();

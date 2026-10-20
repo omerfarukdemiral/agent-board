@@ -1,5 +1,5 @@
 // Left rail: Project → Sessions, with live state, agent counts and how many things wait for the user.
-import { FolderGit2 } from 'lucide-react';
+import { Eye, FolderGit2 } from 'lucide-react';
 import { ago, cn, isLive } from '../lib';
 import type { Project } from '../flow';
 import type { Session } from '../types';
@@ -78,6 +78,11 @@ export function ProjectTree({ projects, current, session, waitingBySession, note
                         <span className="flex items-center gap-1.5 text-[12px] text-ink">
                           <span className={cn('size-1.5 shrink-0 rounded-full', st.dot)} />
                           <span className="font-mono text-[11px]">#{s.id.slice(0, 4)}</span>
+                          {s.via === 'transcript' && (
+                            <span title="Transcript'ten izleniyor: onay ve mesaj için claude-board ile aç">
+                              <Eye className="size-3 shrink-0 text-faint" />
+                            </span>
+                          )}
                           <span className={cn('truncate', w ? 'text-alert' : 'text-muted')}>{st.label}</span>
                           <span className="ml-auto shrink-0 text-[10.5px] text-faint">{ago(s.lastEventAt, now)}</span>
                         </span>

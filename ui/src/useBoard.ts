@@ -56,6 +56,8 @@ export function useBoard() {
       const { request } = JSON.parse((e as MessageEvent).data) as { request: ApprovalRequest };
       setRequests((prev) => ({ ...prev, [request.id]: request }));
     });
+    // a bulk transcript read happened without per-event updates: take a fresh snapshot
+    es.addEventListener('resync', () => load());
     es.addEventListener('channels', (e) => setChannelPids((JSON.parse((e as MessageEvent).data) as { pids: number[] }).pids));
     return () => {
       cancelled = true;

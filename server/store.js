@@ -107,6 +107,10 @@ function ensureSession(p) {
   }
   if (!s.transcriptPath && p.transcript_path) s.transcriptPath = p.transcript_path;
   if (!s.inbox) s.inbox = {};
+  // 'transcript' = only read from disk (no approvals/messages); any hook event upgrades it for good
+  if (p.via === 'transcript') s.via = s.via || 'transcript';
+  else if (p.hook_event_name !== 'BoardActivity' && p.hook_event_name !== 'BoardInbox') s.via = 'hook';
+  if (!s.cwd && p.cwd) s.cwd = p.cwd;
   s.lastEventAt = Math.max(s.lastEventAt || 0, p.ts);
   return s;
 }
@@ -519,12 +523,38 @@ function ingest(p) {
   changed.length = 0;
   const s = reduce(p);
   if (!s) return null;
-  persist(p);
+  // transcript-derived events are re-read from the transcript after a restart; no copy needed
+  if (p.via !== 'transcript') persist(p);
   // stop hooks can fire before the final assistant message is flushed: read again shortly after
   if (['PostToolUse', 'SubagentStop', 'Stop', 'SessionEnd'].includes(p.hook_event_name)) scheduleRefresh(s, p.agent_id || 'main');
   emitSession(s);
   for (const item of changed.splice(0)) emit({ type: 'activity', sessionId: s.id, item });
   return s;
+}
+
+const ingestAll = (events) => {
+  for (const p of events) ingest(p);
+};
+
+// Bulk reads (a long transcript seen for the first time) skip per-event broadcasts;
+// open pages get one "resync" and reload the snapshot instead.
+function quietly(fn) {
+  const was = replaying;
+  replaying = true;
+  try {
+    fn();
+  } finally {
+    replaying = was;
+    changed.length = 0;
+  }
+  if (!was) emit({ type: 'resync' });
+}
+
+function patchSession(id, fields) {
+  const s = sessions.get(id);
+  if (!s) return;
+  Object.assign(s, fields);
+  emitSession(s);
 }
 
 // Lets other modules (approvals, channels) add items to a session's activity log.
@@ -551,7 +581,7 @@ const alive = (pid) => {
 function sweepDead() {
   for (const s of sessions.values()) {
     if (s.endedAt || !s.pid || alive(s.pid)) continue;
-    ingest({ session_id: s.id, hook_event_name: 'SessionEnd', reason: 'process-exit', ts: Date.now() });
+    ingest({ session_id: s.id, hook_event_name: 'SessionEnd', reason: 'process-exit', ts: Date.now(), via: s.via === 'transcript' ? 'transcript' : undefined });
   }
 }
 
@@ -587,6 +617,9 @@ function restore() {
 }
 
 module.exports = {
+  ingestAll,
+  quietly,
+  patchSession,
   addInbox,
   alive,
   sweepDead,
