@@ -15,7 +15,7 @@ Claude Code terminalde (cmux, iTerm, ne kullanıyorsan) her zamanki gibi çalı�
 Node 18+ ve Claude Code yeterli. Bir kez:
 
 ```sh
-git clone <repo-url> ~/tools/agent-board
+git clone https://github.com/omerfarukdemiral/agent-board ~/tools/agent-board
 cd ~/tools/agent-board
 npm run setup
 ```
