@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>agent-board · Claude Code için canlı pano</title>
-  <meta name="description" content="Claude Code terminalde çalışmaya devam eder. agent-board agent'ları canlı gösterir; izinleri, soruları ve mesajları tarayıcıdan yönetirsin." />
+  <meta name="description" content="Claude Code terminalde çalışmaya devam eder. agent-board makinedeki bütün oturumları, agent'ları ve görevleri canlı gösterir; izinleri, kararları ve mesajları tarayıcıdan yönetirsin." />
   <meta property="og:title" content="agent-board" />
   <meta property="og:description" content="Terminalde çalış, kararları tarayıcıdan ver. Claude Code için canlı pano." />
   <meta property="og:image" content="https://agent-board.ofd.works/board.jpg" />
@@ -213,7 +213,7 @@
       <section class="hero">
         <div>
           <h1>Terminalde çalış.<span>Kararları tarayıcıdan ver.</span></h1>
-          <p class="lede">Claude Code terminalde olduğu gibi çalışır. agent-board her oturumu, subagent'ları ve görevleri canlı gösterir; izin isteklerine, sorulara ve mesajlara tarayıcıdan cevap verirsin.</p>
+          <p class="lede">Claude Code terminalde olduğu gibi çalışır. agent-board makinedeki bütün oturumları tek panoda toplar: kim çalışıyor, kim seni bekliyor, agent'lar ne yapıyor, görevler nereye geldi. İzinlere, kararlara ve mesajlara tarayıcıdan cevap verirsin.</p>
           <div class="install">
             <div class="cmd"><code id="c0"><b>$</b> git clone https://github.com/omerfarukdemiral/agent-board &amp;&amp; cd agent-board &amp;&amp; npm run setup</code><button class="copy" data-copy="c0">Kopyala</button></div>
             <p>Node 18+ ve Claude Code yeterli. Her şey senin makinende kalır.</p>
@@ -271,26 +271,27 @@
                 <div class="cmd"><code id="c1">git clone https://github.com/omerfarukdemiral/agent-board ~/tools/agent-board &amp;&amp; cd ~/tools/agent-board &amp;&amp; npm run setup</code><button class="copy" data-copy="c1">Kopyala</button></div>
               </li>
               <li>
-                <h3>Projende claude yerine claude-board yaz</h3>
-                <p>Argümanların hepsi claude'a geçer. Açılıştaki channels uyarısını Enter ile geç.</p>
-                <div class="cmd"><code id="c2">cd ~/projem &amp;&amp; claude-board</code><button class="copy" data-copy="c2">Kopyala</button></div>
+                <h3>Board'u aç, oturumların zaten orada</h3>
+                <p>Board <code>localhost:4317</code> adresinde açılır. O an açık olan Claude Code oturumları, nasıl başlatılmış olurlarsa olsunlar, kurulumsuz belirir: agent'lar, görevler, sohbet ve maliyet.</p>
+                <div class="cmd"><code id="c2">npm --prefix ~/tools/agent-board start</code><button class="copy" data-copy="c2">Kopyala</button></div>
               </li>
               <li>
-                <h3>Board kendiliğinden açılır</h3>
-                <p>Her yeni oturum <code>localhost:4317</code> adresinde bir sekme olarak belirir. Birden fazla terminal açarsan hepsi aynı panoda.</p>
+                <h3>Tam kontrol için claude-board</h3>
+                <p>Projende <code>claude</code> yerine <code>claude-board</code> yaz. İzinleri ve soruları panodan cevaplar, çalışan oturuma panodan yazarsın. Açılıştaki channels uyarısını Enter ile geç.</p>
+                <div class="cmd"><code id="c3">cd ~/projem &amp;&amp; claude-board</code><button class="copy" data-copy="c3">Kopyala</button></div>
               </li>
             </ol>
           </div>
           <div>
             <figure class="shot">
-              <img src="board.jpg" width="1200" height="640" loading="lazy" alt="agent-board: orkestratör ve iki subagent'lı ağaç, Edit onayı bekleyen kart, etkinlik akışı ve mesaj kutusu" />
-              <figcaption>Gerçek bir oturum: iki paralel subagent bitti, orkestratör bir Edit için onayını bekliyor.</figcaption>
+              <img src="board.jpg" width="1440" height="724" loading="lazy" alt="agent-board: solda projeler ve oturumlar, ortada orkestratör ve dört subagent'lı harita, sağda onay bekleyen bir komut, review kaydı ve sohbet" />
+              <figcaption>Turnuva platformu testinden bir oturum: subagent'lar bitti, orkestratör bir komut için onayını bekliyor, eleme ağacı review'da.</figcaption>
             </figure>
             <dl class="feat">
-              <div><dt>Canlı agent ağacı</dt><dd>Orkestratör, subagent'lar ve iç içe olanlar; durum, süre, o anki araç ve api eşdeğeri maliyet.</dd></div>
-              <div><dt>Onay ve sorular</dt><dd>Komut, diff ve dosya içeriği önizlemesiyle. Terminalden de cevaplayabilirsin, hangisi önce gelirse.</dd></div>
-              <div><dt>Board'dan mesaj</dt><dd>Çalışan oturuma yaz; Claude işini yapar, cevabını panoya bırakır.</dd></div>
-              <div><dt>Görev listesi</dt><dd>Claude'un açtığı görevler ilerledikçe işaretlenir.</dd></div>
+              <div><dt>Agent haritası</dt><dd>Orkestratör ortada, subagent'lar etrafında. Yakınlaştır, kaydır; her agent'ın durumu, o anki aracı ve maliyeti.</dd></div>
+              <div><dt>Inbox</dt><dd>İzin istekleri, Claude'un senin yerine verdiği kararlar ve okuman gereken notlar. Terminalden de cevaplanabilir, hangisi önce gelirse.</dd></div>
+              <div><dt>Şimdi ekranı</dt><dd>Bütün projeler tek bakışta: çalışanlar, seni bekleyenler, son hareket edenler.</dd></div>
+              <div><dt>Görev akışı</dt><dd>Yapılacak, Çalışılıyor, Review, Bitti. Her kartta işi yapan agent.</dd></div>
             </dl>
           </div>
         </div>
@@ -298,7 +299,7 @@
     </main>
 
     <footer>
-      <p>Sunucu yalnızca 127.0.0.1'de çalışır, dışarı istek atmaz; onaylar sayfaya özel bir anahtarla korunur. Board'dan mesajlaşma Claude Code'un deneysel channels özelliğine dayanır.</p>
+      <p>Sunucu yalnızca 127.0.0.1'de çalışır, dışarı istek atmaz; onaylar sayfaya özel bir anahtarla korunur. Kurulumsuz izleme salt okunurdur; board'dan mesajlaşma Claude Code'un deneysel channels özelliğine dayanır.</p>
       <p>Arayüzde affectUI'nin ücretsiz (MIT) bileşenleri kullanılır. <a href="https://github.com/omerfarukdemiral/agent-board">Kaynak kodu GitHub'da</a>.</p>
     </footer>
   </div>
