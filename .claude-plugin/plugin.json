@@ -1,0 +1,6 @@
+{
+  "name": "agent-board",
+  "version": "0.2.0",
+  "description": "Live browser view of the Claude Code agent tree: status, duration, tool calls and API-equivalent cost per agent. Listens via hooks only.",
+  "author": { "name": "Ömer Faruk" }
+}

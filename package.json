@@ -1,0 +1,14 @@
+{
+  "name": "agent-board",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Live browser board for Claude Code sessions: agent tree, activity, tasks, approvals and board-to-Claude messages.",
+  "scripts": {
+    "setup": "node scripts/setup.js",
+    "build": "npm --prefix ui ci --no-audit --no-fund && npm --prefix ui run build",
+    "start": "node server/index.js",
+    "dev:ui": "npm --prefix ui run dev",
+    "settings": "node scripts/settings.js"
+  },
+  "engines": { "node": ">=18" }
+}

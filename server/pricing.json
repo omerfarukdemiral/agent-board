@@ -1,0 +1,8 @@
+{
+  "_note": "USD per 1M tokens. cacheWrite5m = 1.25x input, cacheWrite1h = 2x input. Source: claude-api skill model table (cached 2026-10-06). null = unknown, shown as —",
+  "claude-fable-5-1":  { "in": 10,  "out": 50,  "cacheWrite5m": 12.5,  "cacheWrite1h": 20,  "cacheRead": 0.25 },
+  "claude-opus-5-5":   { "in": 4,   "out": 20,  "cacheWrite5m": 5,     "cacheWrite1h": 8,   "cacheRead": 0.2 },
+  "claude-sonnet-5-5": { "in": 2,   "out": 10,  "cacheWrite5m": 2.5,   "cacheWrite1h": 4,   "cacheRead": 0.2 },
+  "claude-haiku-5-5":  { "in": 0.1, "out": 0.5, "cacheWrite5m": 0.125, "cacheWrite1h": 0.2, "cacheRead": 0.01,
+    "longContext": { "thresholdTokens": 100000, "in": 0.5, "out": 2.5, "cacheWrite5m": null, "cacheWrite1h": null, "cacheRead": null } }
+}

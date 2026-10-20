@@ -1,0 +1,7 @@
+node_modules/
+ui/dist/
+.DS_Store
+# spike outputs: raw hook payloads contain local paths and prompts
+spike/*.jsonl
+spike/settings*.json
+*.tsbuildinfo

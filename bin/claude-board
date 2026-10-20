@@ -1,0 +1,11 @@
+#!/bin/sh
+# claude + agent-board: hooks (plugin), the agent-board channel (board → Claude messages) and the dev-channel flag.
+# Every argument is passed through to claude, e.g. `claude-board --resume`.
+# The dev-channel flag shows a one-time warning screen per launch; press Enter to continue.
+SELF=$(readlink -f "$0" 2>/dev/null || echo "$0")
+AB=$(cd "$(dirname "$SELF")/.." && pwd)
+exec claude \
+  --plugin-dir "$AB" \
+  --mcp-config "{\"mcpServers\":{\"agent-board\":{\"command\":\"node\",\"args\":[\"$AB/channel/server.js\"]}}}" \
+  --dangerously-load-development-channels server:agent-board \
+  "$@"
