@@ -1,4 +1,4 @@
-import { childrenOf } from '../lib';
+import { childrenOf, cn } from '../lib';
 import type { Agent, Session } from '../types';
 import { AgentCard } from './AgentCard';
 
@@ -33,6 +33,29 @@ function Node({ agent, depth, ...p }: Props & { agent: Agent; depth: number }) {
   );
 }
 
+// Phones: an indented list instead of the org chart, so nothing scrolls sideways
+function List({ agent, depth, ...p }: Props & { agent: Agent; depth: number }) {
+  const kids = depth < 8 ? childrenOf(p.session, agent.id) : [];
+  return (
+    <>
+      <div className={cn(depth > 0 && 'border-l border-line-strong pl-3')} style={{ marginLeft: depth > 1 ? (depth - 1) * 12 : 0 }}>
+        <AgentCard
+          fluid
+          agent={agent}
+          now={p.now}
+          sessionEnded={!!p.session.endedAt}
+          waiting={p.waitingBy[agent.id] || 0}
+          selected={p.selected === agent.id}
+          onSelect={() => p.onSelect(p.selected === agent.id ? null : agent.id)}
+        />
+      </div>
+      {kids.map((k) => (
+        <List key={k.id} agent={k} depth={depth + 1} {...p} />
+      ))}
+    </>
+  );
+}
+
 export function AgentTree(props: Props) {
   const { session } = props;
   const main = session.agents.main;
@@ -43,7 +66,8 @@ export function AgentTree(props: Props) {
     : session;
   return (
     <div className="scroll-thin overflow-x-auto rounded-[22px] bg-tray p-1.5 ring-line">
-      <div className="mx-auto w-max min-w-full rounded-2xl px-3 py-5">{main && <Node {...props} session={s} agent={main} depth={0} />}</div>
+      <div className="mx-auto hidden w-max min-w-full rounded-2xl px-3 py-5 sm:block">{main && <Node {...props} session={s} agent={main} depth={0} />}</div>
+      <div className="flex flex-col gap-2 p-2 sm:hidden">{main && <List {...props} session={s} agent={main} depth={0} />}</div>
     </div>
   );
 }

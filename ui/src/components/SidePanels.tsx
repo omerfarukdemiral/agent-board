@@ -1,5 +1,6 @@
 // Task list (TaskCreate/TaskUpdate/TodoWrite) and background work (workflows, background agents/shells).
 // Task list look adapted from affectUI's free progress-tracker (MIT): tray, animated bar, drawn ticks.
+import { useState } from 'react';
 import { Check, Layers, ListTodo, Loader2 } from 'lucide-react';
 import { agentName, cn } from '../lib';
 import type { Session, Task } from '../types';
@@ -10,6 +11,17 @@ export function TaskPanel({ session }: { session: Session }) {
   const tasks = Object.values(session.tasks).sort((a, b) => (ORDER[a.status] ?? 1) - (ORDER[b.status] ?? 1) || a.updatedAt - b.updatedAt);
   const done = tasks.filter((t) => t.status === 'completed').length;
   const progress = tasks.length ? done / tasks.length : 0;
+  const [open, setOpen] = useState(false);
+  if (tasks.length === 0) return null;
+  // a finished list is history: one line, expandable
+  if (done === tasks.length && !open)
+    return (
+      <button className="flex w-full items-center gap-2 rounded-2xl bg-tray px-3.5 py-2.5 text-left text-[13px] text-muted ring-line" onClick={() => setOpen(true)}>
+        <Check className="size-4 text-ok" />
+        {tasks.length} görevin hepsi tamamlandı
+        <span className="ml-auto text-[11px] text-faint">göster</span>
+      </button>
+    );
 
   return (
     <section className="rounded-[22px] bg-tray p-1.5 ring-line">
@@ -24,15 +36,11 @@ export function TaskPanel({ session }: { session: Session }) {
         <div className="h-1.5 overflow-hidden rounded-full bg-tile">
           <div className="h-full rounded-full bg-ok transition-[width] duration-500 ease-out-quint" style={{ width: `${progress * 100}%` }} />
         </div>
-        {tasks.length === 0 ? (
-          <p className="pt-3 text-[13px] text-muted">Claude bir görev listesi açınca adımlar burada ilerler.</p>
-        ) : (
-          <ul className="mt-2 space-y-0.5">
-            {tasks.map((t) => (
-              <TaskRow key={t.id} t={t} who={t.agentId !== 'main' ? agentName(session, t.agentId) : null} />
-            ))}
-          </ul>
-        )}
+        <ul className="mt-2 space-y-0.5">
+          {tasks.map((t) => (
+            <TaskRow key={t.id} t={t} who={t.agentId !== 'main' ? agentName(session, t.agentId) : null} />
+          ))}
+        </ul>
       </div>
     </section>
   );
@@ -62,7 +70,8 @@ function TaskRow({ t, who }: { t: Task; who: string | null }) {
 }
 
 export function BackgroundPanel({ session }: { session: Session }) {
-  const items = session.background || [];
+  // subagents already have a card in the tree; list only work that has no other home (workflows, shells…)
+  const items = (session.background || []).filter((b) => !/agent/i.test(String(b.type || '')));
   if (!items.length) return null;
   return (
     <section className="rounded-[22px] bg-tray p-1.5 ring-line">
@@ -80,7 +89,6 @@ export function BackgroundPanel({ session }: { session: Session }) {
           </li>
         ))}
       </ul>
-      <p className="px-3.5 pb-1 pt-1.5 text-[11px] text-faint">Tur sonunda güncellenir.</p>
     </section>
   );
 }

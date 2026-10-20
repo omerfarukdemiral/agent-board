@@ -28,7 +28,7 @@ function settle(r, status, extra = {}) {
 }
 
 function activityItem(r) {
-  const label = { pending: 'bekliyor', allowed: 'board: izin verildi', denied: 'board: reddedildi', answered: 'board: cevaplandı', elsewhere: 'terminalde cevaplandı' }[r.status];
+  const label = { pending: 'bekliyor', allowed: 'board: izin verildi', denied: 'board: reddedildi', answered: 'board: cevaplandı', elsewhere: 'başka yerden cevaplandı' }[r.status];
   return {
     id: `approval:${r.id}`,
     ts: r.createdAt,
@@ -112,10 +112,15 @@ function sweepDead() {
   }
 }
 
-function onSessionEvent(sessionId, event) {
-  // a finished turn or session can't have a live permission prompt
-  if (!['Stop', 'SessionEnd', 'UserPromptSubmit'].includes(event)) return;
-  for (const r of requests.values()) if (r.status === 'pending' && r.sessionId === sessionId) settle(r, 'elsewhere');
+// A stopped agent can't have a live prompt. Scoped per agent: background subagents keep asking for
+// permission after the main turn ends, and task notifications arrive as UserPromptSubmit mid-run.
+function onSessionEvent(p) {
+  const agentId = p.agent_id || 'main';
+  const ended = (r) =>
+    p.hook_event_name === 'SessionEnd' ||
+    (p.hook_event_name === 'SubagentStop' && r.agentId === agentId) ||
+    (p.hook_event_name === 'Stop' && r.agentId === 'main');
+  for (const r of requests.values()) if (r.status === 'pending' && r.sessionId === p.session_id && ended(r)) settle(r, 'elsewhere');
 }
 
 module.exports = {

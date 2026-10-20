@@ -2,7 +2,7 @@
 // Visual language adapted from affectUI's free decision-inbox (MIT): gray tray, card on top, light primary button.
 import { useState } from 'react';
 import { AlertTriangle, Check, CircleCheck, MessageCircleQuestion, ShieldQuestion, Terminal, X } from 'lucide-react';
-import { agentName, ago, cn, projectName } from '../lib';
+import { agentName, ago, cn, projectName, rel } from '../lib';
 import type { ApprovalRequest, Decision, Question, Session } from '../types';
 
 type Props = {
@@ -17,42 +17,58 @@ const RESOLVED_LABEL: Record<string, string> = {
   allowed: 'İzin verildi',
   denied: 'Reddedildi',
   answered: 'Cevaplandı',
-  elsewhere: 'Terminalde cevaplandı',
+  elsewhere: 'Başka yerden',
 };
 
 export function ApprovalInbox({ requests, sessions, now, onDecide, onOpenSession }: Props) {
+  const [showRecent, setShowRecent] = useState(false);
   const pending = requests.filter((r) => r.status === 'pending').sort((a, b) => a.createdAt - b.createdAt);
   const recent = requests
     .filter((r) => r.status !== 'pending')
     .sort((a, b) => (b.resolvedAt || 0) - (a.resolvedAt || 0))
-    .slice(0, 4);
+    .slice(0, 6);
+
+  // nothing to decide: a single quiet line instead of a panel
+  if (pending.length === 0) {
+    return (
+      <section className="rounded-2xl bg-tray px-3.5 py-2.5 ring-line">
+        <button className="flex w-full items-center gap-2 text-left text-[13px] text-muted" onClick={() => setShowRecent((v) => !v)} disabled={!recent.length}>
+          <CircleCheck className="size-4 text-ok" />
+          Bekleyen karar yok
+          {recent.length > 0 && <span className="ml-auto text-[11px] text-faint">{showRecent ? 'gizle' : `son ${recent.length} karar`}</span>}
+        </button>
+        {showRecent && <RecentList recent={recent} />}
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-[22px] bg-tray p-1.5 ring-line">
-      <header className={cn('flex items-center gap-2 px-3.5 pb-2 pt-2 text-sm font-medium', pending.length ? 'text-alert' : 'text-ok')} aria-live="polite">
-        {pending.length ? <AlertTriangle className="size-4" /> : <CircleCheck className="size-4" />}
-        {pending.length ? `${pending.length} karar seni bekliyor` : 'Bekleyen karar yok'}
+      <header className="flex items-center gap-2 px-3.5 pb-2 pt-2 text-sm font-medium text-alert" aria-live="polite">
+        <AlertTriangle className="size-4" />
+        {pending.length} karar seni bekliyor
       </header>
 
       <div className="overflow-hidden rounded-2xl bg-card shadow-[0_1px_2px_rgba(0,0,0,.4)] ring-line">
-        {pending.length === 0 && <p className="px-4 py-5 text-[13px] text-muted">Claude izin isteyince ya da soru sorunca burada belirir. Terminalden cevap verirsen kart kendiliğinden kapanır.</p>}
         {pending.map((r, i) => (
           <RequestCard key={r.id} r={r} session={sessions[r.sessionId]} now={now} first={i === 0} onDecide={onDecide} onOpenSession={onOpenSession} />
         ))}
       </div>
-
-      {recent.length > 0 && (
-        <ul className="mt-1.5 space-y-0.5 px-2 pb-1">
-          {recent.map((r) => (
-            <li key={r.id} className="flex items-center gap-2 rounded-lg px-1.5 py-1 text-xs text-faint">
-              {r.status === 'denied' ? <X className="size-3.5 text-err" /> : r.status === 'elsewhere' ? <Terminal className="size-3.5" /> : <Check className="size-3.5 text-ok" />}
-              <span className="truncate text-muted">{r.kind === 'question' ? r.toolInput.questions?.[0]?.question : `${r.toolName} · ${preview(r).title}`}</span>
-              <span className="ml-auto shrink-0">{RESOLVED_LABEL[r.status]}</span>
-            </li>
-          ))}
-        </ul>
-      )}
     </section>
+  );
+}
+
+function RecentList({ recent }: { recent: ApprovalRequest[] }) {
+  return (
+    <ul className="mt-1.5 space-y-0.5">
+      {recent.map((r) => (
+        <li key={r.id} className="flex items-center gap-2 rounded-lg py-1 text-xs text-faint">
+          {r.status === 'denied' ? <X className="size-3.5 text-err" /> : r.status === 'elsewhere' ? <Terminal className="size-3.5" /> : <Check className="size-3.5 text-ok" />}
+          <span className="truncate text-muted">{r.kind === 'question' ? r.toolInput.questions?.[0]?.question : `${r.toolName} · ${preview(r).title}`}</span>
+          <span className="ml-auto shrink-0">{RESOLVED_LABEL[r.status]}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -128,9 +144,10 @@ function RequestCard({ r, session, now, first, onDecide, onOpenSession }: { r: A
 
 function preview(r: ApprovalRequest): { title: string; body?: string; diff?: { old: string; new: string } } {
   const i = r.toolInput as Record<string, string>;
+  const shortPath = (p = '') => rel(p, r.cwd);
   switch (r.toolName) {
     case 'Bash':
-      return { title: i.description || 'Komut çalıştırmak istiyor', body: i.command };
+      return { title: i.description || 'Komut çalıştırmak istiyor', body: rel(i.command, r.cwd) };
     case 'Write':
       return { title: shortPath(i.file_path), body: i.content };
     case 'Edit':
@@ -144,7 +161,6 @@ function preview(r: ApprovalRequest): { title: string; body?: string; diff?: { o
   }
 }
 
-const shortPath = (p = '') => p.split('/').slice(-3).join('/');
 
 function PermissionPreview({ r }: { r: ApprovalRequest }) {
   const p = preview(r);
@@ -158,12 +174,12 @@ function PermissionPreview({ r }: { r: ApprovalRequest }) {
         <span className="font-mono text-[12.5px] text-alert">{r.toolName}</span> <span className="break-all">{p.title}</span>
       </p>
       {p.body && (
-        <pre className="scroll-thin mt-2 max-h-56 overflow-auto rounded-lg bg-tile p-2.5 font-mono text-[11.5px] leading-[18px] text-text ring-line">
+        <pre className="scroll-thin mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-tile p-2.5 font-mono text-[11.5px] leading-[18px] text-text ring-line">
           {lines(p.body).join('\n')}
         </pre>
       )}
       {p.diff && (
-        <pre className="scroll-thin mt-2 max-h-56 overflow-auto rounded-lg bg-tile py-2 font-mono text-[11.5px] leading-[18px] ring-line">
+        <pre className="scroll-thin mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-tile py-2 font-mono text-[11.5px] leading-[18px] ring-line">
           {lines(p.diff.old, 8).map((l, i) => (
             <div key={`o${i}`} className="bg-err/10 px-2.5 text-err">
               - {l}

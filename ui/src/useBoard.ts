@@ -94,12 +94,10 @@ export function useNow(active: boolean) {
   return now;
 }
 
-// Title badge + desktop notification when Claude waits on a decision and the tab is in the background.
+// Desktop notification when Claude waits on a decision and the tab is in the background.
 export function useAttention(pending: ApprovalRequest[], label: (r: ApprovalRequest) => string) {
   const notified = useRef(new Set<string>());
   useEffect(() => {
-    const base = document.title.replace(/^\(\d+\) /, '');
-    document.title = pending.length ? `(${pending.length}) ${base}` : base;
     if (!('Notification' in window)) return;
     for (const r of pending) {
       if (notified.current.has(r.id)) continue;

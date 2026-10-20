@@ -82,7 +82,7 @@ const server = http.createServer((req, res) => {
       json(res, 202, { ok: true });
       if (err) return console.error('[agent-board] bad event:', err.message);
       store.ingest(p);
-      approvals.onSessionEvent(p.session_id, p.hook_event_name);
+      approvals.onSessionEvent(p);
     });
   }
 

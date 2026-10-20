@@ -2,17 +2,19 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUp, Bot, Check, MessageSquare, Radio, ShieldQuestion, Terminal, User, X } from 'lucide-react';
 import { agentName, cn } from '../lib';
+import { Md } from './Md';
 import type { ActivityItem, Session } from '../types';
 import { ToolCallCard, ToolCallGroup } from './affect/tool-call-card';
 import { SegmentedControl } from './affect/segmented-control';
 
-type Block = { key: string; kind: 'tools'; agentId: string; items: ActivityItem[] } | { key: string; kind: 'single'; item: ActivityItem };
+type Item = ActivityItem & { folded?: boolean };
+type Block = { key: string; kind: 'tools'; agentId: string; items: ActivityItem[] } | { key: string; kind: 'single'; item: Item };
 
 const LIMIT = 160;
 // the channel's own reply tool shows up as a chat bubble instead
 const HIDDEN_TOOL = /^mcp__agent-board__/;
 
-function toBlocks(items: ActivityItem[]): Block[] {
+function toBlocks(items: Item[]): Block[] {
   const blocks: Block[] = [];
   for (const it of items) {
     const last = blocks[blocks.length - 1];
@@ -46,7 +48,18 @@ export function ActivityFeed({ session, items, filter: selected, onFilter, chann
   }, [items]);
 
   const visible = useMemo(() => {
-    const sorted = items.filter((i) => !(i.kind === 'tool' && HIDDEN_TOOL.test(i.name || ''))).sort((a, b) => a.ts - b.ts);
+    // settled approvals live in the inbox's history; in the feed they only split tool groups apart
+    const sorted: Item[] = items
+      .filter((i) => !(i.kind === 'tool' && HIDDEN_TOOL.test(i.name || '')) && !(i.kind === 'approval' && i.status !== 'running'))
+      .sort((a, b) => a.ts - b.ts);
+    // when Claude already answered on the board, its terminal wrap-up mostly repeats it: fold it
+    let answered = false;
+    for (let k = 0; k < sorted.length; k++) {
+      const it = sorted[k];
+      if (it.kind === 'prompt' || it.kind === 'board-message') answered = false;
+      else if (it.kind === 'board-reply') answered = true;
+      else if (it.kind === 'reply' && answered) sorted[k] = { ...it, folded: true };
+    }
     const f = filter === 'all' ? sorted : sorted.filter((i) => i.agentId === filter || i.childId === filter);
     return toBlocks(f.slice(-LIMIT));
   }, [items, filter]);
@@ -166,7 +179,24 @@ function ToolBlock({ b, session }: { b: Extract<Block, { kind: 'tools' }>; sessi
   );
 }
 
-function Single({ it, session }: { it: ActivityItem; session: Session }) {
+function FoldedReply({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="enter pl-1 text-xs text-faint">
+      <button className="inline-flex items-center gap-1.5 hover:text-ink" onClick={() => setOpen((v) => !v)}>
+        <MessageSquare className="size-3.5" />
+        Terminal çıktısı · {open ? 'gizle' : 'göster'}
+      </button>
+      {open && (
+        <div className="mt-1.5 pl-5 text-[13px] leading-5 text-text [overflow-wrap:anywhere]">
+          <Md text={text} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Single({ it, session }: { it: Item; session: Session }) {
   switch (it.kind) {
     case 'prompt':
       return (
@@ -197,15 +227,18 @@ function Single({ it, session }: { it: ActivityItem; session: Session }) {
             <div className="mb-0.5 flex items-center gap-1 text-[10.5px] text-faint">
               <Bot className="size-3" /> Claude · board'a cevap
             </div>
-            <span className="whitespace-pre-wrap">{it.summary}</span>
+            <Md text={String(it.summary || '')} />
           </div>
         </div>
       );
     case 'reply':
+      if (it.folded) return <FoldedReply text={String(it.summary || '')} />;
       return (
         <div className="enter flex gap-2">
           <MessageSquare className="mt-1 size-3.5 shrink-0 text-faint" />
-          <p className="whitespace-pre-wrap text-[13px] leading-5 text-text [overflow-wrap:anywhere]">{String(it.summary || '')}</p>
+          <div className="min-w-0 text-[13px] leading-5 text-text [overflow-wrap:anywhere]">
+            <Md text={String(it.summary || '')} />
+          </div>
         </div>
       );
     case 'agent':

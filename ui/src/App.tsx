@@ -1,17 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bell, FolderGit2, Radio } from 'lucide-react';
+import { Bell, History } from 'lucide-react';
 import { ActivityFeed } from './components/ActivityFeed';
 import { AgentTree } from './components/AgentTree';
 import { ApprovalInbox } from './components/ApprovalInbox';
 import { BackgroundPanel, TaskPanel } from './components/SidePanels';
 import { NumberTicker } from './components/affect/number-ticker';
-import { SegmentedControl } from './components/affect/segmented-control';
-import { cn, isLive, projectName, requestLabel, totals } from './lib';
-import type { ApprovalRequest } from './types';
+import { ago, cn, isLive, projectName, requestLabel, totals } from './lib';
+import type { ApprovalRequest, Session } from './types';
 import { useAttention, useBoard, useNow } from './useBoard';
 
 const paramSession = () => new URLSearchParams(location.search).get('session');
-const MAX_TABS = 8;
 
 export default function App() {
   const { sessions, activity, requests, connected, channelPids, decide, sendMessage } = useBoard();
@@ -24,8 +22,7 @@ export default function App() {
   const allRequests = useMemo(() => Object.values(requests), [requests]);
   const pending = useMemo(() => allRequests.filter((r) => r.status === 'pending'), [allRequests]);
 
-  // tabs: live sessions first (most recently active), then recent finished ones
-  const tabs = [...live, ...list.filter((s) => !isLive(s))].slice(0, MAX_TABS);
+  const ended = list.filter((s) => !isLive(s));
   // without an explicit choice, follow the most recently active live session
   const current = (selected && sessions[selected]) || live[0] || list[0] || null;
 
@@ -37,8 +34,12 @@ export default function App() {
       url.searchParams.set('session', current.id);
       history.replaceState(null, '', url);
     }
-    document.title = `${projectName(current.cwd)} · agent-board`;
   }, [current?.id]);
+  // one place owns the tab title: pending count first, then the project
+  useEffect(() => {
+    const name = current ? `${projectName(current.cwd)} · agent-board` : 'agent-board';
+    document.title = pending.length ? `(${pending.length}) ${name}` : name;
+  }, [current?.id, pending.length]);
 
   const label = useCallback((r: ApprovalRequest) => requestLabel(r), []);
   useAttention(pending, label);
@@ -55,59 +56,59 @@ export default function App() {
   return (
     <div className="dark min-h-screen">
       <header className="sticky top-0 z-20 border-b border-line bg-page/85 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-x-6 gap-y-2 px-4 pt-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <FolderGit2 className="size-4 shrink-0 text-muted" />
-            <h1 className="truncate text-sm font-semibold">{current ? projectName(current.cwd) : 'agent-board'}</h1>
-            <span className={cn('inline-flex items-center gap-1 text-[11px]', connected ? 'text-ok' : 'text-err')} title={connected ? 'canlı akış bağlı' : 'sunucuya bağlanılamıyor'}>
-              <Radio className="size-3" />
-              {connected ? 'canlı' : 'bağlantı yok'}
-            </span>
-            {current?.waiting === 'input' && !pendingBySession(current.id) && <span className="rounded-full bg-tile px-2 py-0.5 text-[11px] text-muted ring-line">yeni mesajını bekliyor</span>}
-          </div>
+        <div className="mx-auto flex max-w-[1500px] items-center gap-3 px-4 py-2">
+          <nav className="scroll-thin flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" aria-label="Oturumlar">
+            {live.map((s) => (
+              <SessionTab key={s.id} s={s} active={s.id === current?.id} pending={pendingBySession(s.id)} showId={live.filter((x) => x.cwd === s.cwd).length > 1} onClick={() => setSelected(s.id)} />
+            ))}
+            {current && !isLive(current) && <SessionTab s={current} active pending={0} showId onClick={() => {}} />}
+            {ended.length > 0 && (
+              <label className="relative ml-1 inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-faint hover:text-ink">
+                <History className="size-3.5" />
+                Geçmiş
+                <select
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                  value=""
+                  onChange={(e) => e.target.value && setSelected(e.target.value)}
+                  aria-label="Biten oturumlar"
+                >
+                  <option value="">Biten oturumlar</option>
+                  {ended.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {projectName(s.cwd)} · {s.id.slice(0, 4)} · {ago(s.endedAt || s.lastEventAt, Date.now())}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </nav>
+
           {t && (
-            <div className="flex items-center gap-5 text-xs tabular-nums text-muted">
-              <span>
-                <b className="font-semibold text-ink">{t.agents}</b> agent · <b className={cn('font-semibold', t.running ? 'text-run' : 'text-ink')}>{t.running}</b> çalışıyor
+            <div className="flex shrink-0 items-center gap-4 text-xs tabular-nums text-muted">
+              <span className="hidden sm:inline">
+                <b className="font-semibold text-ink">{t.agents}</b> agent
+                {t.running > 0 && (
+                  <>
+                    {' · '}
+                    <b className="font-semibold text-run">{t.running}</b> çalışıyor
+                  </>
+                )}
               </span>
-              <span className="inline-flex items-baseline gap-1.5" title="Abonelikle kullanıyorsan bu gerçek fatura değildir">
+              <span className="inline-flex items-baseline gap-1" title="API eşdeğeri maliyet. Abonelikle kullanıyorsan bu gerçek fatura değildir.">
                 <b className="text-sm font-semibold text-ink">
                   <NumberTicker value={Number(t.cost.toFixed(4))} format={{ style: 'currency', currency: 'USD', minimumFractionDigits: 3, maximumFractionDigits: 4 }} locale="en-US" />
                   {t.partial && '+'}
                 </b>
-                <span className="text-[10px] uppercase tracking-wider text-faint">api eşdeğeri</span>
               </span>
             </div>
           )}
+          <span className={cn('size-2 shrink-0 rounded-full', connected ? 'bg-ok' : 'bg-err pulse-dot')} title={connected ? 'canlı akış bağlı' : 'sunucuya bağlanılamıyor'} />
           {notifyPerm === 'default' && (
-            <button className="btn ml-auto inline-flex items-center gap-1.5 !h-7 !text-xs" onClick={() => Notification.requestPermission().then(setNotifyPerm)}>
-              <Bell className="size-3.5" /> Bildirimleri aç
+            <button className="grid size-7 shrink-0 place-items-center rounded-md text-muted hover:bg-tile hover:text-ink" onClick={() => Notification.requestPermission().then(setNotifyPerm)} title="Karar beklenince masaüstü bildirimi gönder">
+              <Bell className="size-4" />
             </button>
           )}
         </div>
-        <nav className="scroll-thin mx-auto max-w-[1500px] overflow-x-auto px-3 pb-1 pt-1">
-          {tabs.length > 0 && (
-            <SegmentedControl
-              size="sm"
-              variant="underline"
-              kind="tabs"
-              aria-label="Oturumlar"
-              value={current?.id}
-              onChange={(id) => setSelected(id)}
-              options={tabs.map((s) => ({
-                value: s.id,
-                label: (
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className={cn('size-1.5 rounded-full', !isLive(s) ? 'bg-faint' : totals(s).running ? 'bg-run pulse-dot' : 'bg-ok')} />
-                    {projectName(s.cwd)}
-                    <span className="font-mono text-[10px] text-faint">{s.id.slice(0, 4)}</span>
-                  </span>
-                ),
-                badge: pendingBySession(s.id) ? <span className="text-alert">{pendingBySession(s.id)} onay</span> : undefined,
-              }))}
-            />
-          )}
-        </nav>
       </header>
 
       <main className="mx-auto grid max-w-[1500px] gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_400px]">
@@ -139,7 +140,7 @@ export default function App() {
         {/* on phones the inbox jumps above the tree while a decision is pending */}
         <aside
           className={cn(
-            'scroll-thin flex min-w-0 flex-col gap-4 lg:sticky lg:top-[104px] lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto',
+            'scroll-thin flex min-w-0 flex-col gap-4 lg:sticky lg:top-[64px] lg:max-h-[calc(100vh-80px)] lg:overflow-y-auto',
             pending.length > 0 && 'order-first lg:order-none'
           )}
         >
@@ -149,5 +150,25 @@ export default function App() {
         </aside>
       </main>
     </div>
+  );
+}
+
+function SessionTab({ s, active, pending, showId, onClick }: { s: Session; active: boolean; pending: number; showId: boolean; onClick: () => void }) {
+  const running = totals(s).running > 0;
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-[13px] transition-colors',
+        active ? 'bg-tile font-medium text-ink ring-line' : 'text-muted hover:text-ink'
+      )}
+      title={s.cwd}
+    >
+      <span className={cn('size-1.5 rounded-full', !isLive(s) ? 'bg-faint' : pending ? 'bg-alert pulse-dot' : running ? 'bg-run pulse-dot' : 'bg-ok')} />
+      {projectName(s.cwd)}
+      {showId && <span className="font-mono text-[10px] text-faint">{s.id.slice(0, 4)}</span>}
+      {!isLive(s) && <span className="text-[10px] text-faint">bitti</span>}
+      {pending > 0 && <span className="rounded-full bg-alert/15 px-1.5 text-[10.5px] font-medium text-alert">{pending}</span>}
+    </button>
   );
 }

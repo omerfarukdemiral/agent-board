@@ -67,3 +67,11 @@ export function requestLabel(r: ApprovalRequest) {
 }
 
 export const isLive = (s: Session) => !s.endedAt;
+
+// Same rule as the server: paths inside the project are shown relative to it
+export function rel(text: string | undefined, cwd: string | undefined) {
+  if (!text || !cwd) return text ?? '';
+  let out = text;
+  for (const r of [cwd, cwd.replace(/^\/private(?=\/)/, '')]) out = out.split(r + '/').join('').split(r).join('.');
+  return out;
+}

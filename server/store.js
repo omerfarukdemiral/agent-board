@@ -31,17 +31,27 @@ function clip(v) {
   return text.slice(0, PAYLOAD_MAX) + `… (+${text.length - PAYLOAD_MAX})`;
 }
 
-function toolArg(input) {
+// Paths inside the project read better relative to it: /…/kitaplik/src/cli.js → src/cli.js
+function relativize(text, cwd) {
+  if (!text || !cwd) return text;
+  const home = os.homedir();
+  const roots = [cwd, cwd.replace(/^\/private(?=\/)/, '')];
+  let out = text;
+  for (const r of roots) out = out.split(r + '/').join('').split(r).join('.');
+  return out.split(home + '/').join('~/');
+}
+
+function toolArg(input, cwd) {
   if (!input || typeof input !== 'object') return '';
   if (Array.isArray(input.questions) && input.questions[0]) return oneLine(input.questions.map((q) => q.question).join(' · '));
   if (input.taskId || input.task_id) return oneLine(`#${input.taskId || input.task_id}${input.status ? ` → ${input.status}` : ''}${input.subject ? ` ${input.subject}` : ''}`);
   if (Array.isArray(input.todos)) return `${input.todos.length} görev`;
   const arg =
     input.file_path || input.notebook_path || input.command || input.pattern || input.url || input.query || input.description || input.subject || input.prompt || input.skill;
-  return oneLine(typeof arg === 'string' ? arg : JSON.stringify(input));
+  return relativize(oneLine(typeof arg === 'string' ? arg : JSON.stringify(input)), cwd);
 }
 
-const describeTool = (name, input) => short(`${name} ${toolArg(input)}`.trim());
+const describeTool = (name, input, cwd) => short(`${name} ${toolArg(input, cwd)}`.trim());
 
 function subagentDir(transcriptPath, sessionId) {
   return path.join(path.dirname(transcriptPath), sessionId, 'subagents');
@@ -303,10 +313,10 @@ function reduce(p) {
       s.waiting = null;
       // the channel's reply tool is plumbing, not an action worth showing on the card
       if (!QUIET_TOOL.test(p.tool_name)) {
-        a.currentTool = describeTool(p.tool_name, p.tool_input);
+        a.currentTool = describeTool(p.tool_name, p.tool_input, s.cwd);
         a.lastAction = a.currentTool;
       }
-      upsertActivity(s, { id: `tool:${p.tool_use_id || p.ts}`, ts: p.ts, agentId, kind: 'tool', name: p.tool_name, summary: toolArg(p.tool_input), args: clip(p.tool_input), status: 'running' });
+      upsertActivity(s, { id: `tool:${p.tool_use_id || p.ts}`, ts: p.ts, agentId, kind: 'tool', name: p.tool_name, summary: toolArg(p.tool_input, s.cwd), args: clip(p.tool_input), status: 'running' });
       break;
     }
 
@@ -315,7 +325,7 @@ function reduce(p) {
       touch(a);
       a.toolCalls += 1;
       a.currentTool = null;
-      if (!QUIET_TOOL.test(p.tool_name)) a.lastAction = describeTool(p.tool_name, p.tool_input);
+      if (!QUIET_TOOL.test(p.tool_name)) a.lastAction = describeTool(p.tool_name, p.tool_input, s.cwd);
       const id = `tool:${p.tool_use_id || p.ts}`;
       const prev = activity.get(s.id).find((x) => x.id === id);
       upsertActivity(s, {
@@ -324,7 +334,7 @@ function reduce(p) {
         agentId,
         kind: 'tool',
         name: p.tool_name,
-        summary: toolArg(p.tool_input),
+        summary: toolArg(p.tool_input, s.cwd),
         args: clip(p.tool_input),
         result: clip(p.tool_response),
         status: toolFailed(p.tool_response) ? 'error' : 'success',
