@@ -1,5 +1,7 @@
 # agent-board
 
+Kurulum sayfası: https://agent-board.ofd.works
+
 Claude Code terminalde (cmux, iTerm, ne kullanıyorsan) her zamanki gibi çalışır. agent-board hook'larla dinler, tarayıcıda canlı bir pano gösterir. Onay ya da seçim gereken anlarda cevabı oradan verebilirsin, çalışan oturuma oradan mesaj da yazabilirsin.
 
 - **agent ağacı:** orkestratör ve altında subagent'lar (nested dahil). durum, süre, araç sayısı, anlık araç, model, token ve api eşdeğeri maliyet.

@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>agent-board · Claude Code için canlı pano</title>
+  <meta name="description" content="Claude Code terminalde çalışmaya devam eder. agent-board agent'ları canlı gösterir; izinleri, soruları ve mesajları tarayıcıdan yönetirsin." />
+  <meta property="og:title" content="agent-board" />
+  <meta property="og:description" content="Terminalde çalış, kararları tarayıcıdan ver. Claude Code için canlı pano." />
+  <meta property="og:image" content="https://agent-board.ofd.works/board.jpg" />
+  <meta name="theme-color" content="#EDF0F4" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect x='6' y='1' width='4' height='4' rx='1' fill='%23F07A2E'/><rect x='1' y='11' width='4' height='4' rx='1' fill='%2315171B'/><rect x='11' y='11' width='4' height='4' rx='1' fill='%2315171B'/><path d='M8 5v3M3 11V8h10v3' stroke='%2315171B' fill='none'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --fog: #edf0f4;
+      --paper: #f7f8fa;
+      --ink: #15171b;
+      --ink-2: #4a505a;
+      --ink-3: #7a818c;
+      --rule: #d6dbe2;
+      --night: #161618;
+      --night-2: #1f1f23;
+      --night-line: rgba(255, 255, 255, 0.09);
+      --night-ink: #ececee;
+      --night-dim: #8e8e96;
+      --wait: #f07a2e;
+      --run: #3d7ff5;
+      --ok: #2fa866;
+      --sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+      --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--fog);
+      color: var(--ink);
+      font: 400 17px/1.55 var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; }
+    :focus-visible { outline: 2px solid var(--run); outline-offset: 3px; border-radius: 4px; }
+    .wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+
+    /* top bar */
+    .top { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
+    .mark { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.01em; text-decoration: none; }
+    .mark svg { width: 20px; height: 20px; }
+    .top nav { display: flex; gap: 22px; font-size: 15px; color: var(--ink-2); }
+    .top nav a { text-decoration: none; }
+    .top nav a:hover { color: var(--ink); }
+
+    /* hero */
+    .hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: 56px; align-items: center; padding: 40px 0 72px; }
+    h1 {
+      margin: 0;
+      font-weight: 600;
+      font-size: clamp(38px, 4.9vw, 60px);
+      line-height: 1.02;
+      letter-spacing: -0.035em;
+    }
+    h1 span { display: block; color: var(--ink-3); }
+    .lede { margin: 22px 0 0; max-width: 34ch; font-size: 19px; color: var(--ink-2); }
+    .install { margin-top: 34px; max-width: 470px; }
+    .cmd {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 12px 12px 16px;
+      background: var(--night); color: var(--night-ink);
+      border-radius: 12px;
+      font: 400 14px/1.4 var(--mono);
+    }
+    .cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+    .cmd code::-webkit-scrollbar { display: none; }
+    .cmd code b { color: var(--night-dim); font-weight: 400; }
+    .copy {
+      flex: none; border: 0; cursor: pointer;
+      padding: 6px 10px; border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08); color: var(--night-ink);
+      font: 500 13px var(--sans);
+      transition: background-color 160ms ease;
+    }
+    .copy:hover { background: rgba(255, 255, 255, 0.14); }
+    .install p { margin: 12px 2px 0; font-size: 14px; color: var(--ink-3); }
+    .actions { display: flex; gap: 12px; margin-top: 26px; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 11px 18px; border-radius: 10px;
+      font: 500 15px var(--sans); text-decoration: none;
+      transition: transform 160ms ease, background-color 160ms ease;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-dark { background: var(--ink); color: #fff; }
+    .btn-dark:hover { background: #2a2d33; }
+    .btn-line { box-shadow: inset 0 0 0 1px var(--rule); }
+    .btn-line:hover { background: var(--paper); }
+    .btn svg { width: 17px; height: 17px; }
+
+    /* the round trip */
+    .duo { position: relative; display: grid; grid-template-columns: 1.15fr 1fr; gap: 14px; align-items: start; }
+    .win { background: var(--night); color: var(--night-ink); border-radius: 14px; box-shadow: 0 30px 60px -30px rgba(21, 23, 27, 0.55), 0 0 0 1px rgba(21, 23, 27, 0.06); overflow: hidden; }
+    .win-bar { display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--night-line); font: 400 12px var(--sans); color: var(--night-dim); }
+    .win-bar i { width: 9px; height: 9px; border-radius: 50%; background: #3a3a40; }
+    .win-bar span { margin-left: 8px; }
+    .term { padding: 14px 14px 16px; min-height: 300px; font: 400 12.5px/1.6 var(--mono); }
+    .term .l { display: block; white-space: pre-wrap; }
+    .term .dim { color: var(--night-dim); }
+    .term .you { color: #fff; }
+    .term .dialog { margin: 10px 0; padding: 10px 12px; border-radius: 8px; border: 1px dashed rgba(240, 122, 46, 0.55); }
+    .term .sel { color: var(--wait); }
+    .term .okline { color: var(--ok); }
+
+    .board { margin-top: 38px; }
+    .card { padding: 14px; }
+    .card .who { display: flex; align-items: center; gap: 7px; font: 400 11.5px var(--sans); color: var(--night-dim); }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--wait); }
+    .card h3 { margin: 8px 0 0; font: 500 14px/1.35 var(--sans); }
+    .card h3 em { font-style: normal; font-family: var(--mono); font-size: 13px; color: var(--wait); }
+    .diff { margin-top: 10px; border-radius: 8px; background: var(--night-2); padding: 8px 0; font: 400 11.5px/1.65 var(--mono); }
+    .diff span { display: block; padding: 0 10px; }
+    .diff .add { color: #57c98a; background: rgba(47, 168, 102, 0.1); }
+    .card .row { display: flex; gap: 8px; margin-top: 12px; }
+    .card .b { padding: 6px 11px; border-radius: 8px; font: 500 12.5px var(--sans); background: #2a2a2e; color: var(--night-ink); }
+    .card .b.primary { background: #f1f1f3; color: #121213; transition: transform 140ms ease, box-shadow 200ms ease; }
+    .card .state { display: none; align-items: center; gap: 7px; margin-top: 12px; font: 500 12.5px var(--sans); color: var(--ok); }
+
+    /* timeline: one orchestrated loop, driven by data-step on .duo */
+    .duo [data-at] { opacity: 0; transform: translateY(4px); transition: opacity 260ms var(--ease), transform 260ms var(--ease); }
+    .duo[data-step='1'] [data-at='1'],
+    .duo[data-step='2'] [data-at='1'], .duo[data-step='2'] [data-at='2'],
+    .duo[data-step='3'] [data-at='1'], .duo[data-step='3'] [data-at='2'], .duo[data-step='3'] [data-at='3'],
+    .duo[data-step='4'] [data-at] { opacity: 1; transform: none; }
+    .duo .card { opacity: 0.35; transition: opacity 300ms var(--ease); }
+    .duo[data-step='2'] .card, .duo[data-step='3'] .card, .duo[data-step='4'] .card { opacity: 1; }
+    .duo[data-step='2'] .board .win { box-shadow: 0 30px 60px -30px rgba(21, 23, 27, 0.55), 0 0 0 2px var(--wait); }
+    .duo[data-step='3'] .card .b.primary { transform: scale(0.94); box-shadow: 0 0 0 3px rgba(61, 127, 245, 0.55); }
+    .duo[data-step='4'] .card .row { display: none; }
+    .duo[data-step='4'] .card .state { display: flex; }
+    .duo[data-step='4'] .card .dot { background: var(--ok); }
+    .duo[data-step='4'] .term .dialog { border-color: var(--night-line); opacity: 0.45; }
+    .wire { position: absolute; left: 53%; top: 136px; width: 6%; height: 2px; background: repeating-linear-gradient(90deg, var(--wait) 0 6px, transparent 6px 11px); opacity: 0; transition: opacity 300ms ease; }
+    .duo[data-step='2'] .wire, .duo[data-step='3'] .wire { opacity: 1; }
+
+    /* how to use */
+    .how { padding: 64px 0 30px; border-top: 1px solid var(--rule); }
+    .how-grid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 56px; }
+    h2 { margin: 0; font: 600 32px/1.12 var(--sans); letter-spacing: -0.025em; }
+    ol.steps { list-style: none; counter-reset: s; margin: 28px 0 0; padding: 0; }
+    ol.steps li { counter-increment: s; position: relative; padding: 0 0 26px 46px; }
+    ol.steps li::before {
+      content: counter(s);
+      position: absolute; left: 0; top: 0;
+      width: 28px; height: 28px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: var(--ink); color: #fff; font: 500 14px var(--sans);
+    }
+    ol.steps li:not(:last-child)::after { content: ''; position: absolute; left: 13.5px; top: 34px; bottom: 6px; width: 1px; background: var(--rule); }
+    ol.steps h3 { margin: 2px 0 0; font: 600 17px var(--sans); }
+    ol.steps p { margin: 4px 0 10px; color: var(--ink-2); font-size: 16px; }
+    ol.steps .cmd { font-size: 13px; padding: 10px 10px 10px 14px; }
+    ol.steps p code { font: 500 14px var(--mono); background: #e1e5eb; padding: 1px 5px; border-radius: 5px; }
+    .shot { margin: 0; }
+    .shot img { display: block; width: 100%; height: auto; border-radius: 14px; box-shadow: 0 30px 60px -32px rgba(21, 23, 27, 0.6), 0 0 0 1px rgba(21, 23, 27, 0.08); }
+    .shot figcaption { margin-top: 10px; font-size: 14px; color: var(--ink-3); }
+    dl.feat { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 28px; margin: 30px 0 0; }
+    dl.feat div { padding-top: 12px; border-top: 2px solid var(--ink); }
+    dl.feat div:nth-child(1) { border-color: var(--run); }
+    dl.feat div:nth-child(2) { border-color: var(--wait); }
+    dl.feat div:nth-child(4) { border-color: var(--ok); }
+    dl.feat dt { font-weight: 600; font-size: 16px; }
+    dl.feat dd { margin: 3px 0 0; color: var(--ink-2); font-size: 15px; }
+
+    footer { padding: 28px 0 40px; font-size: 14px; color: var(--ink-3); }
+    footer p { margin: 0; max-width: 78ch; }
+    footer p + p { margin-top: 6px; }
+
+    @media (max-width: 920px) {
+      .hero, .how-grid { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+      .hero { padding-top: 16px; }
+    }
+    @media (max-width: 600px) {
+      body { font-size: 16px; }
+      .wrap { padding: 0 16px; }
+      .top nav a:not(.gh) { display: none; }
+      .duo { grid-template-columns: minmax(0, 1fr); }
+      .board { margin-top: 0; }
+      .wire { display: none; }
+      .term { min-height: 0; }
+      dl.feat { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .duo [data-at], .duo .card, .card .b.primary { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="mark" href="#" aria-label="agent-board ana sayfa">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="1" width="4" height="4" rx="1" fill="#F07A2E" /><rect x="1" y="11" width="4" height="4" rx="1" fill="#15171B" /><rect x="11" y="11" width="4" height="4" rx="1" fill="#15171B" /><path d="M8 5v3M3 11V8h10v3" stroke="#15171B" fill="none" /></svg>
+        agent-board
+      </a>
+      <nav>
+        <a href="#kurulum">Kurulum</a>
+        <a class="gh" href="https://github.com/omerfarukdemiral/agent-board">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <h1>Terminalde çalış.<span>Kararları tarayıcıdan ver.</span></h1>
+          <p class="lede">Claude Code terminalde olduğu gibi çalışır. agent-board her oturumu, subagent'ları ve görevleri canlı gösterir; izin isteklerine, sorulara ve mesajlara tarayıcıdan cevap verirsin.</p>
+          <div class="install">
+            <div class="cmd"><code id="c0"><b>$</b> git clone https://github.com/omerfarukdemiral/agent-board &amp;&amp; cd agent-board &amp;&amp; npm run setup</code><button class="copy" data-copy="c0">Kopyala</button></div>
+            <p>Node 18+ ve Claude Code yeterli. Her şey senin makinende kalır.</p>
+          </div>
+          <div class="actions">
+            <a class="btn btn-dark" href="https://github.com/omerfarukdemiral/agent-board">
+              <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z" /></svg>
+              GitHub'da incele
+            </a>
+            <a class="btn btn-line" href="#kurulum">Nasıl kullanılır</a>
+          </div>
+        </div>
+
+        <div class="duo" id="duo" data-step="4" aria-label="Claude izin ister, board'dan onaylanır, terminalde işlem devam eder">
+          <div class="win">
+            <div class="win-bar"><i></i><i></i><i></i><span>~/kitaplik · claude-board</span></div>
+            <div class="term">
+              <span class="l you">› list komutuna --unread ekle</span>
+              <span class="l dim">⏺ Edit(src/cli.js)</span>
+              <div class="dialog" data-at="1">
+                <span class="l">Do you want to make this edit to cli.js?</span>
+                <span class="l sel">❯ 1. Yes</span>
+                <span class="l dim">  2. Yes, allow all edits this session</span>
+                <span class="l dim">  3. No</span>
+              </div>
+              <span class="l okline" data-at="4">  ⎿ Allowed by PermissionRequest hook</span>
+              <span class="l" data-at="4">  ⎿ Updated src/cli.js with 3 additions</span>
+              <span class="l dim" data-at="4">⏺ npm test: 29 geçti, 0 başarısız</span>
+            </div>
+          </div>
+          <span class="wire" aria-hidden="true"></span>
+          <div class="board">
+            <div class="win">
+              <div class="win-bar"><i></i><i></i><i></i><span>localhost:4317</span></div>
+              <div class="card">
+                <div class="who"><span class="dot"></span>kitaplik · Orchestrator</div>
+                <h3><em>Edit</em> src/cli.js</h3>
+                <div class="diff"><span class="add">+ const unread = args.includes('--unread');</span><span class="add">+ const shown = unread ? books.filter((b) =&gt; !b.read) : books;</span></div>
+                <div class="row"><span class="b primary">İzin ver</span><span class="b">Reddet…</span></div>
+                <div class="state">✓ İzin verildi</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="how" id="kurulum">
+        <div class="how-grid">
+          <div>
+            <h2>Nasıl kullanılır</h2>
+            <ol class="steps">
+              <li>
+                <h3>Klonla ve bir kez kur</h3>
+                <p><code>setup</code> arayüzü derler ve <code>claude-board</code> komutunu PATH'e ekler.</p>
+                <div class="cmd"><code id="c1">git clone https://github.com/omerfarukdemiral/agent-board ~/tools/agent-board &amp;&amp; cd ~/tools/agent-board &amp;&amp; npm run setup</code><button class="copy" data-copy="c1">Kopyala</button></div>
+              </li>
+              <li>
+                <h3>Projende claude yerine claude-board yaz</h3>
+                <p>Argümanların hepsi claude'a geçer. Açılıştaki channels uyarısını Enter ile geç.</p>
+                <div class="cmd"><code id="c2">cd ~/projem &amp;&amp; claude-board</code><button class="copy" data-copy="c2">Kopyala</button></div>
+              </li>
+              <li>
+                <h3>Board kendiliğinden açılır</h3>
+                <p>Her yeni oturum <code>localhost:4317</code> adresinde bir sekme olarak belirir. Birden fazla terminal açarsan hepsi aynı panoda.</p>
+              </li>
+            </ol>
+          </div>
+          <div>
+            <figure class="shot">
+              <img src="board.jpg" width="1200" height="640" loading="lazy" alt="agent-board: orkestratör ve iki subagent'lı ağaç, Edit onayı bekleyen kart, etkinlik akışı ve mesaj kutusu" />
+              <figcaption>Gerçek bir oturum: iki paralel subagent bitti, orkestratör bir Edit için onayını bekliyor.</figcaption>
+            </figure>
+            <dl class="feat">
+              <div><dt>Canlı agent ağacı</dt><dd>Orkestratör, subagent'lar ve iç içe olanlar; durum, süre, o anki araç ve api eşdeğeri maliyet.</dd></div>
+              <div><dt>Onay ve sorular</dt><dd>Komut, diff ve dosya içeriği önizlemesiyle. Terminalden de cevaplayabilirsin, hangisi önce gelirse.</dd></div>
+              <div><dt>Board'dan mesaj</dt><dd>Çalışan oturuma yaz; Claude işini yapar, cevabını panoya bırakır.</dd></div>
+              <div><dt>Görev listesi</dt><dd>Claude'un açtığı görevler ilerledikçe işaretlenir.</dd></div>
+            </dl>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Sunucu yalnızca 127.0.0.1'de çalışır, dışarı istek atmaz; onaylar sayfaya özel bir anahtarla korunur. Board'dan mesajlaşma Claude Code'un deneysel channels özelliğine dayanır.</p>
+      <p>Arayüzde affectUI'nin ücretsiz (MIT) bileşenleri kullanılır. <a href="https://github.com/omerfarukdemiral/agent-board">Kaynak kodu GitHub'da</a>.</p>
+    </footer>
+  </div>
+
+  <script>
+    // copy buttons
+    for (const b of document.querySelectorAll('[data-copy]')) {
+      b.addEventListener('click', async () => {
+        const text = document.getElementById(b.dataset.copy).textContent.replace(/^\$\s*/, '');
+        try {
+          await navigator.clipboard.writeText(text);
+          b.textContent = 'Kopyalandı';
+        } catch {
+          b.textContent = 'Seçip kopyala';
+        }
+        setTimeout(() => (b.textContent = 'Kopyala'), 1600);
+      });
+    }
+
+    // the round trip: Claude asks → board card lights up → "İzin ver" pressed → terminal continues
+    const duo = document.getElementById('duo');
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!still) {
+      const steps = [[0, 900], [1, 1300], [2, 1500], [3, 700], [4, 3200]];
+      let i = 0;
+      const tick = () => {
+        const [step, wait] = steps[i];
+        duo.dataset.step = step;
+        i = (i + 1) % steps.length;
+        setTimeout(tick, wait);
+      };
+      tick();
+    }
+  </script>
+</body>
+</html>
