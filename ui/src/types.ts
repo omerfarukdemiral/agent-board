@@ -14,6 +14,8 @@ export type Agent = {
   currentTool: string | null;
   tokens: { input: number; output: number; cacheWrite: number; cacheRead: number };
   costUsd: number | null;
+  phase?: string | null; // workflow agents: the phase they ran in
+  workflow?: { runId: string; phases: string[]; current: string | null; agents: number; finished: number }; // a Workflow run node
 };
 
 export type Task = {

@@ -80,3 +80,10 @@ Bu oturumda affectUI MCP'si bağlı değil. kartlar shadcn tarzında elle yazıl
 - transcript'ler yüzlerce MB olabiliyor (bu geliştirme oturumu 26 MB, `api-request-blob` satırları megabaytlarca). tümünü okumak sunucuyu 1,28 GB'a çıkardı; 4 MB'lık parçalar + JSON.parse'tan önce satır başına bakarak eleme + araç girdilerini kırpma ile tepe 329 MB, oturunca 80 MB. maliyet hesabı değişmedi (cost-state ile birebir).
 - canlılık: cmux her `claude`'u `--session-id <uuid>` ile başlatıyor; `ps` çıktısından oturum ↔ pid eşleşiyor. eşleşmeyen oturumlar 15 dk sessizlikten sonra kapandı sayılır.
 - gecikme: kendi araç çağrım board'da ≤5 sn içinde göründü (tarama 2,5 sn).
+
+## Workflow agent'ları (2026-10-20)
+
+- Workflow aracının agent'ları `subagents/` altına değil `<session>/subagents/workflows/<runId>/agent-<id>.jsonl` altına yazar; `meta.json`'da `agentType: "workflow-subagent"`, `description` (etiket) ve `workflowPhase` var.
+- Aynı klasördeki `journal.jsonl`: `launched`, her agent için `started` (`agentId`, `label`, `phase`) ve bitince `result` (`agentId`, `result`).
+- `<session>/workflows/scripts/<name>-<runId>.js` script'in kendisi (`meta.name`, `meta.phases`); `<session>/workflows/<runId>.json` yalnızca çalışma bitince oluşur (`status`, `workflowName`, `startTime` epoch ms, `durationMs`).
+- Board bunları her oturum için (hook'lu olanlar dahil) okur; hook ve transcript'ten gelen aynı araç çağrısı `tool_use_id` ile tekilleşir.

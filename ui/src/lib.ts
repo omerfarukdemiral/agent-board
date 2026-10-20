@@ -108,8 +108,9 @@ export function nowDoing(s: Session, state: SessionState): string | null {
   return action ? prettyTool(rel(action, s.cwd)) : null;
 }
 
+// workflow runs are containers on the canvas; their agents count as subagents
 export function runningCount(s: Session) {
-  const subs = Object.values(s.agents).filter((a) => a.id !== 'main');
+  const subs = Object.values(s.agents).filter((a) => a.id !== 'main' && a.type !== 'workflow');
   return { subs: subs.length, running: subs.filter((a) => a.status === 'running').length };
 }
 

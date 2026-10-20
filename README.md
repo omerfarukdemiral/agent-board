@@ -21,7 +21,7 @@ Durumlar her yerde aynı kuralla hesaplanır:
 **proje.** Projenin oturumları ve birleşik **görev panosu**: Yapılacak / Çalışılıyor / Review / Bitti. Her kartta işi yapan agent görünür. Review, seni bekleyen işler demek: yürüten agent onay bekliyordur ya da Claude review istemiştir.
 
 **oturum.** Başlıkta durum ve düz bir cümle ("çalışıyor · şu an Bash npm test"), altında üç sekme:
-- **Agent'lar:** orkestratör ortada, subagent'lar etrafında, nested olanlar ebeveynlerinin yönünde. Tuval yakınlaştırılıp kaydırılır: sıkıştır ya da ⌘ + tekerlek, sürükle, "Sığdır". Uzaklaşınca kartlar okunur etiketlere döner. Bir agent'a tıklayınca Etkinlik'te yalnızca onun işleri görünür.
+- **Agent'lar:** orkestratör ortada, subagent'lar etrafında bir sürü gibi: çalışanlar yakında, bitenler dışta, nested olanlar ebeveynlerinin çevresinde. Her Workflow çalışması kendi düğümüdür: adı, faz çubuğu, aktif faz, kaç agent'ın bittiği ve agent'larının toplam maliyeti. Agent'ları onun etrafında canlı belirir; biten bir workflow katlanır, tıklayınca açılır. Tuval yakınlaştırılıp kaydırılır: sıkıştır ya da ⌘ + tekerlek, sürükle, "Sığdır". Uzaklaşınca kartlar okunur etiketlere döner. Bir agent'a tıklayınca Etkinlik'te yalnızca onun işleri görünür.
 - **Görevler:** görev varsa, o oturumun panosu.
 - **Etkinlik:** araç çağrıları (argüman ve sonuçlarıyla), subagent'lar, mesajlar.
 
@@ -111,7 +111,6 @@ Transcript'lerdeki `message.usage` alanları `message.id` bazında tekilleştiri
 ## bilinen sınırlar
 
 - **mesajlaşma deneysel bir özelliğe dayanıyor:** channels Claude Code'da research preview ve özel kanallar `--dangerously-load-development-channels` bayrağı istiyor. Team/Enterprise hesaplarda org yöneticisinin channels'ı açması gerekir. Claude meşgulken gelen mesaj sıradaki turda işlenir.
-- **workflow agent'ları:** Workflow aracının içinde koşan agent'lar henüz test edilmedi. Workflow'lar şimdilik oturum sayfasındaki "arka plan işleri"nde, tur sonunda görünüyor.
 - **sunucu kapalıyken kaybolan olaylar:** sunucu kapalıyken gelen hook olayları kaybolur; hook'lar sessizce vazgeçer. Transcript'ten izlenen oturumlar etkilenmez, çünkü yeniden okunurlar.
 
 ## yapı

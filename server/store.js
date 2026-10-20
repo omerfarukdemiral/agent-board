@@ -117,7 +117,14 @@ function ensureSession(p) {
 
 function ensureAgent(s, id, p) {
   if (!s.agents[id]) s.agents[id] = newAgent(id, { parentId: 'main', type: p.agent_type || 'subagent', startedAt: p.ts });
-  return s.agents[id];
+  const a = s.agents[id];
+  // workflow agents: their run is the parent, the label and phase come from the run's journal,
+  // and their transcript lives under subagents/workflows/<run>/ instead of subagents/
+  if (p.parent_agent_id) a.parentId = p.parent_agent_id;
+  if (p.description && !a.description) a.description = p.description;
+  if (p.workflow_phase) a.phase = p.workflow_phase;
+  if (p.agent_transcript_path && p.agent_type === 'workflow-subagent') a.transcript = p.agent_transcript_path;
+  return a;
 }
 
 function applyMeta(s, a) {
@@ -133,6 +140,7 @@ function applyMeta(s, a) {
 
 function transcriptFor(s, agentId) {
   if (agentId === 'main') return s.transcriptPath;
+  if (s.agents[agentId] && s.agents[agentId].transcript) return s.agents[agentId].transcript;
   return s.transcriptPath && path.join(subagentDir(s.transcriptPath, s.id), `agent-${agentId}.jsonl`);
 }
 
@@ -376,6 +384,18 @@ function reduce(p) {
       applyMeta(s, a);
       // no activity item here: the parent's Agent tool call already shows the spawn, and the
       // description (meta.json) usually isn't written yet. SubagentStop adds the result item.
+      break;
+    }
+
+    // a Workflow run, read from its journal: one node that its agents hang off
+    case 'WorkflowRun': {
+      const w = ensureAgent(s, p.agent_id, { agent_type: 'workflow', ts: p.ts });
+      w.type = 'workflow';
+      w.description = p.name;
+      w.startedAt = Math.min(w.startedAt, p.ts);
+      w.workflow = { runId: p.run_id, phases: p.phases || [], current: p.current || null, agents: p.agents || 0, finished: p.finished || 0 };
+      if (p.status === 'running') Object.assign(w, { status: 'running', endedAt: null });
+      else Object.assign(w, { status: p.status, endedAt: p.ended_at || p.ts, currentTool: null });
       break;
     }
 

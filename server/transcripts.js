@@ -130,7 +130,7 @@ function parse(st, sink) {
       if (!st.started) {
         st.started = true;
         const first = { session_id: st.sessionId, transcript_path: st.mainFile, cwd: e.cwd || st.cwd, ts: tsOf(e), via: 'transcript' };
-        if (st.agentId) events.push({ ...first, hook_event_name: 'SubagentStart', agent_id: st.agentId, agent_type: st.agentType });
+        if (st.agentId) events.push({ ...first, ...st.extra, hook_event_name: 'SubagentStart', agent_id: st.agentId, agent_type: st.agentType });
         else events.push({ ...first, hook_event_name: 'SessionStart', source: 'transcript', claude_pid: pids.get(st.sessionId) });
       }
       if (e.cwd && !st.cwd) st.cwd = e.cwd;
@@ -143,7 +143,7 @@ function parse(st, sink) {
 function stateFor(file, sessionId, mainFile, agentId) {
   let st = files.get(file);
   if (!st) {
-    st = { file, sessionId, mainFile, agentId, agentType: null, offset: 0, rest: '', tools: new Map(), text: new Map(), started: false, stopped: false, cwd: null };
+    st = { file, sessionId, mainFile, agentId, agentType: null, extra: null, offset: 0, rest: '', tools: new Map(), text: new Map(), started: false, stopped: false, cwd: null };
     files.set(file, st);
   }
   return st;
@@ -186,6 +186,114 @@ function sessionFiles() {
   return out;
 }
 
+// --- Workflow runs -------------------------------------------------------------
+// <session>/subagents/workflows/<run>/ holds one transcript per agent and journal.jsonl ("started"
+// with label and phase, "result" when an agent is done). <session>/workflows/scripts/ has the script
+// (name and phases), and <session>/workflows/<run>.json appears once the run has finished.
+const runs = new Map(); // run dir → { name, phases, sig, done }
+const wfSeen = new Set(); // hook sessions whose workflows were read once (quietly)
+
+const readJson = (file) => {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return null;
+  }
+};
+const readLines = (file) => {
+  try {
+    return fs
+      .readFileSync(file, 'utf8')
+      .split('\n')
+      .map((l) => {
+        try {
+          return l ? JSON.parse(l) : null;
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+};
+
+function scriptInfo(base, runId) {
+  const dir = path.join(base, 'workflows', 'scripts');
+  try {
+    const f = fs.readdirSync(dir).find((n) => n.endsWith(`-${runId}.js`));
+    if (!f) return { name: runId, phases: [] };
+    const src = fs.readFileSync(path.join(dir, f), 'utf8').slice(0, 8000);
+    const name = (src.match(/name:\s*['"`]([^'"`]+)/) || [])[1] || f.slice(0, -(runId.length + 4));
+    const block = (src.match(/phases:\s*\[([\s\S]*?)\n\s*\]/) || [])[1] || '';
+    return { name, phases: [...block.matchAll(/title:\s*['"`]([^'"`]+)/g)].map((m) => m[1]) };
+  } catch {
+    return { name: runId, phases: [] };
+  }
+}
+
+function scanWorkflows(sessionId, mainFile) {
+  const base = mainFile.slice(0, -6);
+  const wfDir = path.join(base, 'subagents', 'workflows');
+  let ids = [];
+  try {
+    ids = fs.readdirSync(wfDir);
+  } catch {
+    return;
+  }
+  for (const runId of ids) {
+    const dir = path.join(wfDir, runId);
+    let r = runs.get(dir);
+    if (r && r.done) continue;
+    if (!r) runs.set(dir, (r = { ...scriptInfo(base, runId), sig: '', done: false }));
+    const journal = readLines(path.join(dir, 'journal.jsonl'));
+    const record = readJson(path.join(base, 'workflows', `${runId}.json`));
+    const started = journal.filter((j) => j.type === 'started' && j.agentId);
+    const finished = new Set(journal.filter((j) => j.type === 'result').map((j) => j.agentId));
+    let born = Date.now();
+    try {
+      born = fs.statSync(dir).birthtimeMs;
+    } catch {}
+    // startTime is epoch ms in the run record (a date string in older versions)
+    const t0 = record && record.startTime ? (typeof record.startTime === 'number' ? record.startTime : Date.parse(record.startTime)) : NaN;
+    const startTs = Number.isFinite(t0) ? t0 : born;
+    const wfId = `wf:${runId}`;
+    const base_ = { session_id: sessionId, transcript_path: mainFile, via: 'transcript' };
+    const status = !record ? 'running' : record.status === 'failed' || record.status === 'error' ? 'error' : 'done';
+    const run = {
+      ...base_,
+      ts: startTs,
+      hook_event_name: 'WorkflowRun',
+      agent_id: wfId,
+      run_id: runId,
+      name: (record && record.workflowName) || r.name,
+      phases: r.phases.length ? r.phases : ((record && record.phases) || []).map((p) => p.title || p),
+      current: started.length ? started[started.length - 1].phase : null,
+      agents: started.length,
+      finished: finished.size,
+      status,
+      ended_at: record ? startTs + (record.durationMs || 0) : null,
+    };
+    const sig = JSON.stringify([run.current, run.agents, run.finished, run.status]);
+    if (sig !== r.sig) {
+      r.sig = sig;
+      store.ingestAll([run]);
+    }
+    for (const j of started) {
+      const file = path.join(dir, `agent-${j.agentId}.jsonl`);
+      const st = stateFor(file, sessionId, mainFile, j.agentId);
+      st.agentType = 'workflow-subagent';
+      st.extra = { parent_agent_id: wfId, description: j.label, workflow_phase: j.phase, agent_transcript_path: file };
+      parse(st, store.ingestAll);
+      if (finished.has(j.agentId) && st.started && !st.stopped) {
+        st.stopped = true;
+        store.ingestAll([{ ...base_, ...st.extra, ts: Date.now(), hook_event_name: 'SubagentStop', agent_id: j.agentId, agent_type: st.agentType }]);
+      }
+    }
+    if (record) r.done = true;
+  }
+}
+
 function scanPids() {
   execFile('ps', ['-axo', 'pid=,command='], { maxBuffer: 8 * 1024 * 1024 }, (err, stdout) => {
     if (err) return;
@@ -203,7 +311,7 @@ function scanPids() {
 function scan() {
   for (const { file, sessionId, mtime } of sessionFiles()) {
     const s = store.getSession(sessionId);
-    if (s && s.via !== 'transcript') continue; // the hooks already report this one
+    if (s && s.via !== 'transcript') continue; // the hooks already report this one (workflows: below)
     const first = !files.has(file);
     const main = stateFor(file, sessionId, file, null);
     const subDir = path.join(file.slice(0, -6), 'subagents');
@@ -226,8 +334,12 @@ function scan() {
       }
     };
     // a long transcript is read in one quiet pass, then the page reloads once
-    if (first) store.quietly(run);
-    else run();
+    const withWorkflows = () => {
+      run();
+      scanWorkflows(sessionId, file);
+    };
+    if (first) store.quietly(withWorkflows);
+    else withWorkflows();
 
     const cur = store.getSession(sessionId);
     if (!cur) continue;
@@ -238,6 +350,15 @@ function scan() {
       store.ingestAll([{ session_id: sessionId, ts: mtime, via: 'transcript', hook_event_name: 'SessionEnd', reason: 'transcript-idle' }]);
     }
     known.set(sessionId, { main: file });
+  }
+  // sessions started with claude-board: hooks may not report agents inside a workflow, read them too
+  for (const s of store.listSessions()) {
+    if (s.via === 'transcript' || s.endedAt || !s.transcriptPath) continue;
+    if (wfSeen.has(s.id)) scanWorkflows(s.id, s.transcriptPath);
+    else {
+      wfSeen.add(s.id);
+      store.quietly(() => scanWorkflows(s.id, s.transcriptPath));
+    }
   }
 }
 

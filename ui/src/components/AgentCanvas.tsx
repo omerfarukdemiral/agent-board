@@ -27,6 +27,11 @@ const hash = (s: string) => {
   return ((h >>> 0) % 1000) / 1000;
 };
 
+// a workflow node shows what its agents spent
+function rollupOf(session: Session, id: string) {
+  return { cost: Object.values(session.agents).reduce((n, a) => n + (a.parentId === id ? a.costUsd ?? 0 : 0), 0) };
+}
+
 function layout(session: Session, waitingBy: Record<string, number>): Node[] {
   const main = session.agents.main;
   if (!main) return [];
@@ -46,7 +51,7 @@ function layout(session: Session, waitingBy: Record<string, number>): Node[] {
       const live = isLive(a);
       const angle = depth === 1 ? i * GOLDEN + hash(a.id) * 0.6 : away + (i - (kids.length - 1) / 2) * 0.7;
       const r = (depth === 1 ? 240 + 60 * Math.sqrt(i) : 260) * (live ? 1 : 1.4);
-      const n: Node = { agent: a, x: p.x + Math.cos(angle) * r, y: p.y + (Math.sin(angle) * r) / SY, w: W, h: live ? 100 : 66, parent: p.agent.id, depth, live };
+      const n: Node = { agent: a, x: p.x + Math.cos(angle) * r, y: p.y + (Math.sin(angle) * r) / SY, w: W, h: (live ? 100 : 66) + (a.workflow ? 32 : 0), parent: p.agent.id, depth, live };
       nodes.push(n);
       byId[a.id] = n;
       if (depth < 6) grow(n, depth + 1);
@@ -100,7 +105,23 @@ export function AgentCanvas({ session, now, waitingBy, selected, onSelect }: Pro
     const orphans = Object.values(session.agents).filter((a) => a.id !== 'main' && a.parentId && !session.agents[a.parentId]);
     return orphans.length ? { ...session, agents: { ...session.agents, ...Object.fromEntries(orphans.map((o) => [o.id, { ...o, parentId: 'main' }])) } } : session;
   }, [session]);
-  const nodes = useMemo(() => layout(s, waitingBy), [s, waitingBy]);
+  // a finished workflow folds its agents away until you open it; a running one stays open
+  const [opened, setOpened] = useState<Record<string, boolean>>({});
+  const folded = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const a of Object.values(s.agents)) {
+      if (!a.workflow) continue;
+      const open = opened[a.id] ?? a.status === 'running';
+      if (!open) out[a.id] = Object.values(s.agents).filter((c) => c.parentId === a.id).length;
+    }
+    return out;
+  }, [s, opened]);
+  const visible = useMemo(() => {
+    const hidden = (a: Agent): boolean => !!a.parentId && (folded[a.parentId] !== undefined || (s.agents[a.parentId] ? hidden(s.agents[a.parentId]) : false));
+    return Object.keys(folded).length ? { ...s, agents: Object.fromEntries(Object.entries(s.agents).filter(([, a]) => !hidden(a))) } : s;
+  }, [s, folded]);
+  const nodes = useMemo(() => layout(visible, waitingBy), [visible, waitingBy]);
+  const toggle = (a: Agent) => setOpened((o) => ({ ...o, [a.id]: !(o[a.id] ?? a.status === 'running') }));
   const byId = useMemo(() => Object.fromEntries(nodes.map((n) => [n.agent.id, n])), [nodes]);
 
   const box = useRef<HTMLDivElement>(null);
@@ -244,11 +265,13 @@ export function AgentCanvas({ session, now, waitingBy, selected, onSelect }: Pro
             <div key={n.agent.id} className="absolute transition-[left,top] duration-700 ease-out" style={{ left: n.x - n.w / 2, top: n.y - n.h / 2 }}>
               <AgentCard
                 agent={n.agent}
+                rollup={n.agent.workflow ? rollupOf(s, n.agent.id) : undefined}
+                folded={folded[n.agent.id]}
                 now={now}
                 sessionEnded={!!s.endedAt}
                 waiting={waitingBy[n.agent.id] || 0}
                 selected={selected === n.agent.id}
-                onSelect={() => onSelect(selected === n.agent.id ? null : n.agent.id)}
+                onSelect={() => (n.agent.workflow ? toggle(n.agent) : onSelect(selected === n.agent.id ? null : n.agent.id))}
               />
             </div>
             )
