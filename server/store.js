@@ -154,13 +154,28 @@ function refreshCost(s, a, file) {
 
 const changed = []; // activity items touched by the current reduce() call
 
+// the conversation is kept whole; only tool noise is trimmed when the log grows
+const CHAT_KINDS = new Set(['prompt', 'reply', 'board-message', 'board-reply', 'notice']);
+const CHAT_MAX = 300;
+
 function upsertActivity(s, item) {
   const list = activity.get(s.id);
   const i = list.findIndex((x) => x.id === item.id);
   if (i >= 0) list[i] = { ...list[i], ...item };
   else {
     list.push(item);
-    if (list.length > ACTIVITY_MAX) list.splice(0, list.length - ACTIVITY_MAX);
+    const noise = list.filter((x) => !CHAT_KINDS.has(x.kind));
+    const chat = list.length - noise.length;
+    if (noise.length > ACTIVITY_MAX || chat > CHAT_MAX) {
+      const dropNoise = new Set(noise.slice(0, Math.max(0, noise.length - ACTIVITY_MAX)));
+      let dropChat = Math.max(0, chat - CHAT_MAX);
+      const kept = list.filter((x) => {
+        if (dropNoise.has(x)) return false;
+        if (dropChat > 0 && CHAT_KINDS.has(x.kind)) return (dropChat--, false);
+        return true;
+      });
+      list.splice(0, list.length, ...kept);
+    }
   }
   changed.push(i >= 0 ? list[i] : item);
 }
@@ -627,7 +642,13 @@ module.exports = {
   restore,
   addActivity,
   getSession: (id) => sessions.get(id) || null,
-  getActivity: (id, limit = 150) => (activity.get(id) || []).slice(-limit),
+  // last `limit` tool items plus the whole conversation, in order
+  getActivity: (id, limit = 150) => {
+    const list = activity.get(id) || [];
+    const noise = list.filter((x) => !CHAT_KINDS.has(x.kind)).slice(-limit);
+    const keep = new Set(noise);
+    return list.filter((x) => keep.has(x) || CHAT_KINDS.has(x.kind));
+  },
   listSessions: () => [...sessions.values()].sort((a, b) => b.startedAt - a.startedAt),
   subscribe: (fn) => (listeners.add(fn), () => listeners.delete(fn)),
   HOME,

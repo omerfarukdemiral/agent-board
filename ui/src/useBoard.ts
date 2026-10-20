@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ActivityItem, ApprovalRequest, Decision, Session } from './types';
 
 const ACTIVITY_MAX = 400;
+const CHAT_KINDS = new Set(['prompt', 'reply', 'board-message', 'board-reply', 'notice']);
 const token = () => document.querySelector<HTMLMetaElement>('meta[name="agent-board-token"]')?.content ?? '';
 
 function upsert(list: ActivityItem[], item: ActivityItem) {
@@ -12,7 +13,11 @@ function upsert(list: ActivityItem[], item: ActivityItem) {
     return next;
   }
   const next = [...list, item];
-  return next.length > ACTIVITY_MAX ? next.slice(-ACTIVITY_MAX) : next;
+  const noise = next.filter((x) => !CHAT_KINDS.has(x.kind));
+  if (noise.length <= ACTIVITY_MAX) return next;
+  // trim tool noise only; the conversation stays
+  const drop = new Set(noise.slice(0, noise.length - ACTIVITY_MAX));
+  return next.filter((x) => !drop.has(x));
 }
 
 // Snapshot from /state, then small diffs from the SSE stream.
