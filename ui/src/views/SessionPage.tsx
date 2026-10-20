@@ -40,7 +40,7 @@ export function SessionPage(p: Props) {
 
   const st = sessionState(s, p.waiting, p.now);
   const doing = nowDoing(s, st);
-  const { subs, running } = runningCount(s);
+  const { subs, running, done, workflows } = runningCount(s);
   const pending = useMemo(() => p.requests.filter((r) => r.status === 'pending' && r.sessionId === s.id), [p.requests, s.id]);
   const cards = useMemo(() => flowCards([s], pending), [s, pending]);
   const tasks = Object.values(s.tasks);
@@ -91,7 +91,15 @@ export function SessionPage(p: Props) {
             </h1>
           </div>
           <p className="mt-2 text-[13px] tabular-nums text-muted">
-            1 orkestratör · {subs} subagent{running > 0 && <span className="text-run"> ({running} çalışıyor)</span>}
+            1 orkestratör{workflows > 0 && ` · ${workflows} workflow`} · {subs} subagent
+            {(running > 0 || done > 0) && (
+              <span>
+                {' '}
+                ({running > 0 && <span className="text-run">{running} çalışıyor</span>}
+                {running > 0 && done > 0 && ', '}
+                {done > 0 && <span className="text-ok">{done} bitti</span>})
+              </span>
+            )}
             {tasks.length > 0 && ` · ${tasks.filter((t) => t.status === 'completed').length}/${tasks.length} görev`} · {duration((s.endedAt ?? p.now) - s.startedAt)} ·{' '}
             <span className="text-ink" title="API eşdeğeri; abonelikte gerçek fatura değildir">
               {usd(sessionCost(s))}

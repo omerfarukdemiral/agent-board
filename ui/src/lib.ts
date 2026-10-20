@@ -111,7 +111,12 @@ export function nowDoing(s: Session, state: SessionState): string | null {
 // workflow runs are containers on the canvas; their agents count as subagents
 export function runningCount(s: Session) {
   const subs = Object.values(s.agents).filter((a) => a.id !== 'main' && a.type !== 'workflow');
-  return { subs: subs.length, running: subs.filter((a) => a.status === 'running').length };
+  return {
+    subs: subs.length,
+    running: subs.filter((a) => a.status === 'running').length,
+    done: subs.filter((a) => a.status === 'done').length,
+    workflows: Object.values(s.agents).filter((a) => a.type === 'workflow').length,
+  };
 }
 
 export const sessionCost = (s: Session) => Object.values(s.agents).reduce((n, a) => n + (a.costUsd ?? 0), 0);

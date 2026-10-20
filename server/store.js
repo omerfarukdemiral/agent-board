@@ -393,7 +393,7 @@ function reduce(p) {
       w.type = 'workflow';
       w.description = p.name;
       w.startedAt = Math.min(w.startedAt, p.ts);
-      w.workflow = { runId: p.run_id, phases: p.phases || [], current: p.current || null, agents: p.agents || 0, finished: p.finished || 0 };
+      w.workflow = { runId: p.run_id, phases: p.phases || [], current: p.current || null, agents: p.agents || 0, finished: p.finished || 0, phaseStats: p.phase_stats || [] };
       if (p.status === 'running') Object.assign(w, { status: 'running', endedAt: null });
       else Object.assign(w, { status: p.status, endedAt: p.ended_at || p.ts, currentTool: null });
       break;

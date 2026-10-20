@@ -51,7 +51,7 @@ function layout(session: Session, waitingBy: Record<string, number>): Node[] {
       const live = isLive(a);
       const angle = depth === 1 ? i * GOLDEN + hash(a.id) * 0.6 : away + (i - (kids.length - 1) / 2) * 0.7;
       const r = (depth === 1 ? 240 + 60 * Math.sqrt(i) : 260) * (live ? 1 : 1.4);
-      const n: Node = { agent: a, x: p.x + Math.cos(angle) * r, y: p.y + (Math.sin(angle) * r) / SY, w: W, h: (live ? 100 : 66) + (a.workflow ? 32 : 0), parent: p.agent.id, depth, live };
+      const n: Node = { agent: a, x: p.x + Math.cos(angle) * r, y: p.y + (Math.sin(angle) * r) / SY, w: a.workflow ? MAIN_W : W, h: a.workflow ? 84 + Math.max(a.workflow.phases.length, a.workflow.phaseStats?.length ?? 0) * 19 + 20 : live ? 100 : 66, parent: p.agent.id, depth, live };
       nodes.push(n);
       byId[a.id] = n;
       if (depth < 6) grow(n, depth + 1);
@@ -61,7 +61,7 @@ function layout(session: Session, waitingBy: Record<string, number>): Node[] {
 
   // relax: springs to the parent (short for working agents), rectangles pushed apart
   const rest = (n: Node) => (n.depth > 1 ? 300 : n.live ? 330 : 480);
-  const STEPS = 260;
+  const STEPS = 420;
   for (let it = 0; it < STEPS; it++) {
     const heat = 0.06 + 0.5 * (1 - it / STEPS);
     for (const n of nodes) {
@@ -96,6 +96,30 @@ function layout(session: Session, waitingBy: Record<string, number>): Node[] {
         b.y += uy * move * (1 - wa);
       }
   }
+  for (let it = 0; it < 80; it++) {
+    let moved = false;
+    for (let i = 0; i < nodes.length; i++)
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i];
+        const b = nodes[j];
+        const ox = (a.w + b.w) / 2 + PAD * 0.6 - Math.abs(b.x - a.x);
+        const oy = (a.h + b.h) / 2 + PAD * 0.6 - Math.abs(b.y - a.y);
+        if (ox <= 0 || oy <= 0) continue;
+        moved = true;
+        // the cheaper axis wins; the orchestrator stays put
+        const wa = a.depth === 0 ? 0 : b.depth === 0 ? 1 : 0.5;
+        if (ox < oy) {
+          const d = Math.sign(b.x - a.x || 1) * ox;
+          a.x -= d * wa;
+          b.x += d * (1 - wa);
+        } else {
+          const d = Math.sign(b.y - a.y || 1) * oy;
+          a.y -= d * wa;
+          b.y += d * (1 - wa);
+        }
+      }
+    if (!moved) break;
+  }
   return nodes;
 }
 
@@ -107,21 +131,28 @@ export function AgentCanvas({ session, now, waitingBy, selected, onSelect }: Pro
   }, [session]);
   // a finished workflow folds its agents away until you open it; a running one stays open
   const [opened, setOpened] = useState<Record<string, boolean>>({});
-  const folded = useMemo(() => {
+  // a running one hides the finished agents of phases it has moved past (the phase list counts them)
+  const { folded, hiddenIds } = useMemo(() => {
     const out: Record<string, number> = {};
-    for (const a of Object.values(s.agents)) {
-      if (!a.workflow) continue;
-      const open = opened[a.id] ?? a.status === 'running';
-      if (!open) out[a.id] = Object.values(s.agents).filter((c) => c.parentId === a.id).length;
+    const hide = new Set<string>();
+    for (const w of Object.values(s.agents)) {
+      if (!w.workflow) continue;
+      const kids = Object.values(s.agents).filter((c) => c.parentId === w.id);
+      const open = opened[w.id] ?? false;
+      if (open) continue;
+      const at = w.workflow.current ? w.workflow.phases.indexOf(w.workflow.current) : -1;
+      const gone = w.status !== 'running' ? kids : kids.filter((c) => c.status === 'done' && c.phase && at >= 0 && w.workflow!.phases.indexOf(c.phase) < at);
+      if (gone.length) out[w.id] = gone.length;
+      for (const c of gone) hide.add(c.id);
     }
-    return out;
+    return { folded: out, hiddenIds: hide };
   }, [s, opened]);
   const visible = useMemo(() => {
-    const hidden = (a: Agent): boolean => !!a.parentId && (folded[a.parentId] !== undefined || (s.agents[a.parentId] ? hidden(s.agents[a.parentId]) : false));
-    return Object.keys(folded).length ? { ...s, agents: Object.fromEntries(Object.entries(s.agents).filter(([, a]) => !hidden(a))) } : s;
-  }, [s, folded]);
+    const hidden = (a: Agent): boolean => hiddenIds.has(a.id) || (!!a.parentId && !!s.agents[a.parentId] && hidden(s.agents[a.parentId]));
+    return hiddenIds.size ? { ...s, agents: Object.fromEntries(Object.entries(s.agents).filter(([, a]) => !hidden(a))) } : s;
+  }, [s, hiddenIds]);
   const nodes = useMemo(() => layout(visible, waitingBy), [visible, waitingBy]);
-  const toggle = (a: Agent) => setOpened((o) => ({ ...o, [a.id]: !(o[a.id] ?? a.status === 'running') }));
+  const toggle = (a: Agent) => setOpened((o) => ({ ...o, [a.id]: !o[a.id] }));
   const byId = useMemo(() => Object.fromEntries(nodes.map((n) => [n.agent.id, n])), [nodes]);
 
   const box = useRef<HTMLDivElement>(null);

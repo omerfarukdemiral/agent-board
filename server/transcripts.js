@@ -274,7 +274,17 @@ function scanWorkflows(sessionId, mainFile) {
       status,
       ended_at: record ? startTs + (record.durationMs || 0) : null,
     };
-    const sig = JSON.stringify([run.current, run.agents, run.finished, run.status]);
+    // per phase: how many agents it started and how many of those are done
+    const byPhase = new Map(run.phases.map((t) => [t, { title: t, agents: 0, finished: 0 }]));
+    for (const j of started) {
+      const ph = j.phase || '—';
+      if (!byPhase.has(ph)) byPhase.set(ph, { title: ph, agents: 0, finished: 0 });
+      const x = byPhase.get(ph);
+      x.agents++;
+      if (finished.has(j.agentId)) x.finished++;
+    }
+    run.phase_stats = [...byPhase.values()];
+    const sig = JSON.stringify([run.current, run.status, run.phase_stats]);
     if (sig !== r.sig) {
       r.sig = sig;
       store.ingestAll([run]);
