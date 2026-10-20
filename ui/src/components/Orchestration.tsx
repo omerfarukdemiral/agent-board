@@ -1,6 +1,7 @@
 // The session as a schematic: the orchestrator on top, then its branches. Plain subagents sit in a
 // grid; every Workflow run is a row of phases (in order) with all of its agents, finished or not.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { AgentCanvas } from './AgentCanvas';
 import { Check, ChevronDown, ChevronRight, Network, Workflow } from 'lucide-react';
 import { childrenOf, cn, displayName, duration, estimate, prettyTool, rel, usd, workflowProgress } from '../lib';
 import type { Agent, Session } from '../types';
@@ -9,8 +10,22 @@ import { Bar } from './Bars';
 
 type Props = { s: Session; now: number; waitingBy: Record<string, number>; selected: string | null; onSelect: (id: string | null) => void };
 
+type View = 'schema' | 'swarm';
+
 export function Orchestration(p: Props) {
   const { s } = p;
+  const [view, setView] = useState<View>(() => {
+    try {
+      return localStorage.getItem('ab:orch-view') === 'swarm' ? 'swarm' : 'schema';
+    } catch {
+      return 'schema';
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('ab:orch-view', view);
+    } catch {}
+  }, [view]);
   const main = s.agents.main;
   if (!main) return null;
   const kids = childrenOf(s, 'main');
@@ -19,7 +34,13 @@ export function Orchestration(p: Props) {
 
   return (
     <section>
-      <h2 className="mb-2 text-[13px] font-medium text-muted">Orkestrasyon</h2>
+      <div className="mb-2 flex items-center gap-3">
+        <h2 className="text-[13px] font-medium text-muted">Orkestrasyon</h2>
+        <ViewSwitch view={view} onView={setView} />
+      </div>
+      {view === 'swarm' ? (
+        <AgentCanvas session={s} now={p.now} waitingBy={p.waitingBy} selected={p.selected} onSelect={p.onSelect} />
+      ) : (
       <div className="rounded-2xl bg-tray p-3 ring-line sm:p-4">
         <OrchestratorBox {...p} a={main} />
         {kids.length > 0 && (
@@ -42,7 +63,21 @@ export function Orchestration(p: Props) {
           </div>
         )}
       </div>
+      )}
     </section>
+  );
+}
+
+// Şema reads best; Sürü is the showcase (the swarm canvas). The choice is remembered.
+function ViewSwitch({ view, onView }: { view: View; onView: (v: View) => void }) {
+  return (
+    <div className="ml-auto inline-flex rounded-lg bg-tile p-0.5 text-[12px]" role="tablist" aria-label="Görünüm">
+      {(['schema', 'swarm'] as const).map((v) => (
+        <button key={v} role="tab" aria-selected={view === v} onClick={() => onView(v)} className={cn('rounded-md px-2.5 py-1 transition-colors', view === v ? 'bg-card font-medium text-ink shadow-sm' : 'text-muted hover:text-ink')}>
+          {v === 'schema' ? 'Şema' : 'Sürü'}
+        </button>
+      ))}
+    </div>
   );
 }
 
