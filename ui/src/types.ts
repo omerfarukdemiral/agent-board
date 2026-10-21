@@ -15,6 +15,7 @@ export type Agent = {
   tokens: { input: number; output: number; cacheWrite: number; cacheRead: number };
   costUsd: number | null;
   phase?: string | null; // workflow agents: the phase they ran in
+  outcome?: 'failed' | 'stopped' | null; // why an agent (or run) ended in error
   workflow?: { runId: string; phases: string[]; current: string | null; agents: number; finished: number; phaseStats?: { title: string; agents: number; finished: number }[] }; // a Workflow run node
 };
 

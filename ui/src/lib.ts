@@ -59,7 +59,7 @@ export function childrenOf(s: Session, id: string): Agent[] {
 export const displayName = (a: Agent) => (a.description || a.type).replace(/^#\d+\s*[:·-]?\s*/, '');
 
 export function agentName(s: Session | undefined, id: string) {
-  if (id === 'main') return 'Orkestratör';
+  if (id === 'main') return 'Orchestrator';
   const a = s?.agents[id];
   return a ? displayName(a) : id.slice(0, 8);
 }
@@ -98,7 +98,7 @@ export const STATE_DOT: Record<SessionState, string> = { waiting: 'bg-alert puls
 export const prettyTool = (text: string) =>
   text
     // per-session scratch folders are long and say nothing
-    .replace(/(?:\/private)?\/tmp\/claude-\d+\/[^/\s'"]+\/[^/\s'"]+\/scratchpad/g, '<scratch>')
+    .replace(/(?:\/private)?\/tmp\/claude-\d+\/[^/\s'"]+(?:\/[^/\s'"]+(?:\/scratchpad)?)?/g, '<scratch>')
     .replace(/\bmcp__([A-Za-z0-9_-]+?)__([A-Za-z0-9_-]+)/g, (_, server: string, tool: string) => `${server.split(/[_-]/).pop()} · ${tool}`);
 
 // What the session is doing right now, as one short line
@@ -131,14 +131,15 @@ const median = (xs: number[]) => {
   return v.length ? v[Math.floor(v.length / 2)] : 0;
 };
 
-// How far a running agent probably is: its elapsed time against how long its finished peers took
-// (same workflow phase, else same parent). No peers, no guess.
+// How far a running agent probably is: its elapsed time against how long finished agents of the
+// same workflow phase took. Only there is work comparable; plain subagents do unrelated jobs, so
+// they get no guess (and neither does a phase with fewer than two finished agents).
 export function estimate(a: Agent, s: Session, now: number): { pct: number; left: number; peers: number; over: boolean } | null {
-  if (a.status !== 'running' || a.id === 'main' || a.workflow) return null;
+  if (a.status !== 'running' || a.id === 'main' || a.workflow || !a.phase) return null;
   const done = Object.values(s.agents).filter((p) => p.id !== a.id && p.status === 'done' && p.endedAt && !p.workflow && p.id !== 'main');
   // a workflow agent is compared with its own phase only: phases do different kinds of work
   const peers = done.filter((p) => p.parentId === a.parentId && (!a.phase || p.phase === a.phase));
-  if (!peers.length) return null;
+  if (peers.length < 2) return null;
   const typical = median(peers.map((p) => p.endedAt! - p.startedAt));
   if (typical < 5000) return null;
   const elapsed = now - a.startedAt;

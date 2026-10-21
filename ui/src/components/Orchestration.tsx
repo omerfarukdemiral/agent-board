@@ -35,7 +35,7 @@ export function Orchestration(p: Props) {
   return (
     <section>
       <div className="mb-2 flex items-center gap-3">
-        <h2 className="text-[13px] font-medium text-muted">Orkestrasyon</h2>
+        <h2 className="text-[13px] font-medium text-muted">Orchestration</h2>
         <ViewSwitch view={view} onView={setView} />
       </div>
       {view === 'swarm' ? (
@@ -47,7 +47,7 @@ export function Orchestration(p: Props) {
           <div className="ml-4 space-y-3 border-l-2 border-run/25 pt-3 pl-4 sm:ml-6 sm:pl-5">
             {direct.length > 0 && (
               <Branch>
-                <p className="mb-2 text-[12px] text-muted">Subagent'lar · {direct.length}</p>
+                <p className="mb-2 text-[12px] text-muted">Subagents · {direct.length}</p>
                 <div className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]">
                   {direct.map((a) => (
                     <AgentTile key={a.id} {...p} a={a} />
@@ -68,13 +68,13 @@ export function Orchestration(p: Props) {
   );
 }
 
-// Şema reads best; Sürü is the showcase (the swarm canvas). The choice is remembered.
+// Schema reads best; Swarm is the showcase (the swarm canvas). The choice is remembered.
 function ViewSwitch({ view, onView }: { view: View; onView: (v: View) => void }) {
   return (
     <div className="ml-auto inline-flex rounded-lg bg-tile p-0.5 text-[12px]" role="tablist" aria-label="Görünüm">
       {(['schema', 'swarm'] as const).map((v) => (
         <button key={v} role="tab" aria-selected={view === v} onClick={() => onView(v)} className={cn('rounded-md px-2.5 py-1 transition-colors', view === v ? 'bg-card font-medium text-ink shadow-sm' : 'text-muted hover:text-ink')}>
-          {v === 'schema' ? 'Şema' : 'Sürü'}
+          {v === 'schema' ? 'Schema' : 'Swarm'}
         </button>
       ))}
     </div>
@@ -96,7 +96,7 @@ function OrchestratorBox({ a, s, now, waitingBy, selected, onSelect }: Props & {
     >
       <span className="inline-flex items-center gap-2 text-[14px] font-semibold">
         <Network className="size-4" />
-        Orkestratör
+        Orchestrator
       </span>
       <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2 py-0.5 text-[12px]">
         <span className={cn('size-1.5 rounded-full bg-white', a.status === 'running' && 'pulse-dot')} />
@@ -174,7 +174,7 @@ function WorkflowBlock({ run, s, now, waitingBy, selected, onSelect }: Props & {
         <Workflow className="size-4 shrink-0 text-run" />
         <span className="min-w-0 truncate text-[14px] font-semibold text-ink">{run.description}</span>
         <span className={cn('text-[12px] font-medium', running ? 'text-run' : run.status === 'error' ? 'text-err' : 'text-ok')}>
-          {running ? `Faz ${prog.at}/${prog.total} · ${wf.current ?? ''}` : run.status === 'error' ? 'hata' : 'bitti'}
+          {running ? `Phase ${prog.at}/${prog.total} · ${wf.current ?? ''}` : run.outcome === 'stopped' ? 'yarıda kaldı' : run.status === 'error' ? 'hata' : 'bitti'}
         </span>
         <span className="ml-auto inline-flex shrink-0 gap-3 font-mono text-[12px] tabular-nums text-muted">
           <span>

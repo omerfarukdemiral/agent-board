@@ -79,7 +79,7 @@ export function SessionPage(p: Props) {
         <Orchestration s={s} now={p.now} waitingBy={waitingBy} selected={selected} onSelect={setSelected} />
         {cards.length > 0 && (
           <section>
-            <h2 className="mb-2 text-[13px] font-medium text-muted">Görevler</h2>
+            <h2 className="mb-2 text-[13px] font-medium text-muted">Tasks</h2>
             <FlowBoard cards={cards} grouping="task" multiSession={false} now={p.now} onOpen={(_, agentId) => setSelected(agentId && agentId !== 'main' ? agentId : null)} />
           </section>
         )}
@@ -107,7 +107,7 @@ export function SessionPage(p: Props) {
             <AgentDetail s={s} id={selected} items={items} now={p.now} waiting={waitingBy[selected] || 0} onClose={() => setSelected(null)} />
           </div>
         )}
-        <ChatPanel className="min-h-[320px] flex-1" sessions={[s]} sessionId={s.id} onSession={() => {}} activity={p.activity} channelPids={p.channelPids} onSend={p.onSend} />
+        <ChatPanel className="h-[70vh] min-h-[320px] xl:h-auto xl:flex-1" sessions={[s]} sessionId={s.id} onSession={() => {}} activity={p.activity} channelPids={p.channelPids} onSend={p.onSend} />
       </aside>
     </div>
   );

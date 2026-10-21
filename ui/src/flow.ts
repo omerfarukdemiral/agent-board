@@ -17,10 +17,10 @@ export function projectsOf(sessions: Session[]): Project[] {
 
 export type Column = 'todo' | 'doing' | 'review' | 'done';
 export const COLUMNS: { id: Column; label: string }[] = [
-  { id: 'todo', label: 'Yapılacak' },
-  { id: 'doing', label: 'Çalışılıyor' },
+  { id: 'todo', label: 'To do' },
+  { id: 'doing', label: 'In progress' },
   { id: 'review', label: 'Review' },
-  { id: 'done', label: 'Bitti' },
+  { id: 'done', label: 'Done' },
 ];
 
 export type FlowCard = {

@@ -17,18 +17,18 @@ export function StatStrip({ s, now }: { s: Session; now: number }) {
 
   return (
     <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-      <Tile label="Agent'lar" value={ws.length ? `${done}/${ws.length}` : '—'} note={ws.length ? (running ? `${running} çalışıyor` : 'hepsi bitti') : 'subagent yok'}>
+      <Tile label="Agents" value={ws.length ? `${done}/${ws.length}` : '—'} note={ws.length ? (running ? `${running} çalışıyor` : 'hepsi bitti') : 'subagent yok'}>
         {ws.length > 0 && <SplitBar done={done} running={running} total={ws.length} />}
       </Tile>
       {run ? (
         <WorkflowTile run={run} count={runs.length} />
       ) : (
-        <Tile label="Görevler" value={tasks.length ? `${tasksDone}/${tasks.length}` : '—'} note={tasks.length ? `${tasks.length - tasksDone} açık` : 'görev listesi yok'}>
+        <Tile label="Tasks" value={tasks.length ? `${tasksDone}/${tasks.length}` : '—'} note={tasks.length ? `${tasks.length - tasksDone} açık` : 'görev listesi yok'}>
           {tasks.length > 0 && <Bar pct={tasksDone / tasks.length} tone="ok" />}
         </Tile>
       )}
       {run && tasks.length > 0 ? (
-        <Tile label="Görevler" value={`${tasksDone}/${tasks.length}`} note={`${tasks.length - tasksDone} açık`}>
+        <Tile label="Tasks" value={`${tasksDone}/${tasks.length}`} note={`${tasks.length - tasksDone} açık`}>
           <Bar pct={tasksDone / tasks.length} tone="ok" />
         </Tile>
       ) : (
@@ -44,7 +44,7 @@ function WorkflowTile({ run, count }: { run: NonNullable<Session['agents'][strin
   const wf = run.workflow!;
   const done = run.status !== 'running';
   return (
-    <Tile label={count > 1 ? `Workflow · ${count}` : 'Workflow'} value={done ? 'bitti' : `Faz ${p.at}/${p.total}`} note={done ? run.description ?? '' : `${wf.current ?? ''} · ${run.description ?? ''}`}>
+    <Tile label={count > 1 ? `Workflow · ${count}` : 'Workflow'} value={done ? 'bitti' : `Phase ${p.at}/${p.total}`} note={done ? run.description ?? '' : `${wf.current ?? ''} · ${run.description ?? ''}`}>
       <Bar pct={p.pct} tone={done ? 'ok' : 'run'} />
     </Tile>
   );

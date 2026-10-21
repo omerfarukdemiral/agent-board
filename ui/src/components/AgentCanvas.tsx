@@ -247,7 +247,7 @@ export function AgentCanvas({ session, now, waitingBy, selected, onSelect }: Pro
     <div className="overflow-hidden rounded-[22px] bg-tray ring-line">
       <div
         ref={box}
-        className={cn('relative cursor-grab touch-none select-none active:cursor-grabbing', tall ? 'h-[72vh]' : 'h-[440px]')}
+        className={cn('relative cursor-grab touch-none select-none active:cursor-grabbing', tall ? 'h-[85vh]' : 'h-[680px]')}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -350,7 +350,7 @@ function MiniNode({ n, k, waiting, sessionEnded, selected, onSelect }: { n: Node
   return (
     <button
       onClick={onSelect}
-      title={`${main ? 'Orkestratör' : displayName(a)} · ${st.label} · ${a.toolCalls} araç · ${usd(a.costUsd)}`}
+      title={`${main ? 'Orchestrator' : displayName(a)} · ${st.label} · ${a.toolCalls} araç · ${usd(a.costUsd)}`}
       className={cn('absolute flex items-center rounded-[1em] bg-card text-left ring-card transition-[left,top,background-color] duration-700 hover:bg-raise', st.ring, selected && 'ring-selected')}
       // width stays the card's footprint so labels never overlap; only type and height scale with zoom
       style={{
@@ -365,7 +365,7 @@ function MiniNode({ n, k, waiting, sessionEnded, selected, onSelect }: { n: Node
     >
       <span className={cn('shrink-0 rounded-full', st.dot)} style={{ width: 7 * f, height: 7 * f }} />
       {/* name gets both lines; cost and tool count live in the tooltip at this zoom */}
-      <span className={cn('line-clamp-2 min-w-0 flex-1 leading-[1.15]', main ? 'font-semibold text-ink' : 'text-text')}>{main ? 'Orkestratör' : displayName(a)}</span>
+      <span className={cn('line-clamp-2 min-w-0 flex-1 leading-[1.15]', main ? 'font-semibold text-ink' : 'text-text')}>{main ? 'Orchestrator' : displayName(a)}</span>
     </button>
   );
 }

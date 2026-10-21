@@ -50,7 +50,7 @@ export function ChatPanel({ sessions, sessionId, onSession, activity, channelPid
     <section className={cn('flex min-h-0 flex-col overflow-hidden rounded-[18px] bg-tray ring-line', className)}>
       <header className="flex items-center gap-2 border-b border-line px-3 py-2">
         <MessageSquare className="size-4 text-muted" />
-        <span className="text-[13px] font-medium text-ink">Sohbet</span>
+        <span className="text-[13px] font-medium text-ink">Chat</span>
         {sessions.length > 1 && (
           <label className="relative ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-[12px] text-muted ring-line hover:text-ink">
             <span className={cn('size-1.5 rounded-full', live ? (channel ? 'bg-ok' : 'bg-faint') : 'bg-faint')} />

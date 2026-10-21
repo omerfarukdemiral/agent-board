@@ -7,11 +7,13 @@ export const AGENT_STATE = {
   error: { label: 'hata', text: 'text-err', dot: 'bg-err', ring: 'ring-err' },
   idle: { label: 'boşta', text: 'text-muted', dot: 'bg-faint', ring: '' },
   waiting: { label: 'seni bekliyor', text: 'text-alert', dot: 'bg-alert pulse-dot', ring: 'attention' },
+  stopped: { label: 'durdu', text: 'text-muted', dot: 'bg-faint', ring: '' },
 } as const;
 export type AgentState = keyof typeof AGENT_STATE;
 
 export function agentState(a: Agent, sessionEnded: boolean, waiting: number): AgentState {
   if (waiting > 0) return 'waiting';
+  if (a.status === 'error' && a.outcome === 'stopped') return 'stopped';
   // between turns the orchestrator is waiting for the user, not finished
   return a.id === 'main' && a.status === 'done' && !sessionEnded ? 'idle' : a.status;
 }

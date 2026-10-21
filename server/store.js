@@ -394,6 +394,7 @@ function reduce(p) {
       w.description = p.name;
       w.startedAt = Math.min(w.startedAt, p.ts);
       w.workflow = { runId: p.run_id, phases: p.phases || [], current: p.current || null, agents: p.agents || 0, finished: p.finished || 0, phaseStats: p.phase_stats || [] };
+      w.outcome = p.outcome || null;
       if (p.status === 'running') Object.assign(w, { status: 'running', endedAt: null });
       else Object.assign(w, { status: p.status, endedAt: p.ended_at || p.ts, currentTool: null });
       break;
@@ -404,6 +405,8 @@ function reduce(p) {
       if (!s.agents[p.agent_id] && !p.agent_type) return null;
       const a = ensureAgent(s, p.agent_id, p);
       end(a);
+      // workflow journal: 'failed', or 'stopped' when its run ended without this agent's result
+      if (p.outcome) Object.assign(a, { status: 'error', outcome: p.outcome });
       applyMeta(s, a);
       refreshCost(s, a, p.agent_transcript_path);
       upsertActivity(s, {
@@ -573,7 +576,9 @@ const ingestAll = (events) => {
 
 // Bulk reads (a long transcript seen for the first time) skip per-event broadcasts;
 // open pages get one "resync" and reload the snapshot instead.
-function quietly(fn) {
+// Runs fn without broadcasting each change; clients reload once afterwards (resync=false: the
+// caller sends the resync itself, e.g. after a long catch-up done in slices).
+function quietly(fn, resync = true) {
   const was = replaying;
   replaying = true;
   try {
@@ -582,7 +587,7 @@ function quietly(fn) {
     replaying = was;
     changed.length = 0;
   }
-  if (!was) emit({ type: 'resync' });
+  if (!was && resync) emit({ type: 'resync' });
 }
 
 function patchSession(id, fields) {

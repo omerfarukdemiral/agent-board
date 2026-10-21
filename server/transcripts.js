@@ -12,6 +12,17 @@ const ROOT = process.env.CLAUDE_CONFIG_DIR ? path.join(process.env.CLAUDE_CONFIG
 const WINDOW_MS = (Number(process.env.AGENT_BOARD_TRANSCRIPT_HOURS) || 2) * 3600 * 1000;
 const IDLE_END_MS = 15 * 60 * 1000; // no claude process found and no writes for this long: treat as closed
 const SCAN_MS = 2500;
+// Reading is done in slices so the server keeps answering: a slice stops after BUDGET_MS and the
+// next one starts right away while there is a backlog (hundreds of MB on a busy machine).
+const BUDGET_MS = 120;
+let deadline = Infinity;
+let backlog = false;
+const late = () => {
+  if (Date.now() < deadline) return false;
+  backlog = true;
+  return true;
+};
+const pending = new Set(); // files not yet read to the end once
 
 const files = new Map(); // transcript path → parser state
 const known = new Map(); // sessionId → { main, ended }
@@ -117,6 +128,7 @@ function translate(st, e) {
 
 // Feeds events to the store chunk by chunk, so a long transcript never sits in memory whole.
 function parse(st, sink) {
+  if (late()) return;
   for (let lines = readChunk(st); lines; lines = readChunk(st)) {
     const events = [];
     for (const line of lines) {
@@ -138,12 +150,16 @@ function parse(st, sink) {
       events.push(...translate(st, e));
     }
     sink(events);
+    if (late()) return;
   }
+  st.caughtUp = true;
+  pending.delete(st.file);
 }
 
 function stateFor(file, sessionId, mainFile, agentId) {
   let st = files.get(file);
   if (!st) {
+    pending.add(file);
     st = { file, sessionId, mainFile, agentId, agentType: null, extra: null, offset: 0, rest: '', tools: new Map(), text: new Map(), started: false, stopped: false, cwd: null };
     files.set(file, st);
   }
@@ -192,7 +208,7 @@ function sessionFiles() {
 // with label and phase, "result" when an agent is done). <session>/workflows/scripts/ has the script
 // (name and phases), and <session>/workflows/<run>.json appears once the run has finished.
 const runs = new Map(); // run dir → { name, phases, sig, done }
-const wfSeen = new Set(); // hook sessions whose workflows were read once (quietly)
+const STALE_RUN_MS = 30 * 60 * 1000;
 
 const readJson = (file) => {
   try {
@@ -251,6 +267,15 @@ function scanWorkflows(sessionId, mainFile) {
     const record = readJson(path.join(base, 'workflows', `${runId}.json`));
     const started = journal.filter((j) => j.type === 'started' && j.agentId);
     const finished = new Set(journal.filter((j) => j.type === 'result').map((j) => j.agentId));
+    const failed = new Set(journal.filter((j) => j.type === 'failed').map((j) => j.agentId));
+    // no run record and no agent has written for a long time: the run died with its session
+    let newest = 0;
+    for (const j of started) {
+      try {
+        newest = Math.max(newest, fs.statSync(path.join(dir, `agent-${j.agentId}.jsonl`)).mtimeMs);
+      } catch {}
+    }
+    const stale = !record && started.length > 0 && Date.now() - newest > STALE_RUN_MS;
     let born = Date.now();
     try {
       born = fs.statSync(dir).birthtimeMs;
@@ -260,7 +285,8 @@ function scanWorkflows(sessionId, mainFile) {
     const startTs = Number.isFinite(t0) ? t0 : born;
     const wfId = `wf:${runId}`;
     const base_ = { session_id: sessionId, transcript_path: mainFile, via: 'transcript' };
-    const status = !record ? 'running' : record.status === 'failed' || record.status === 'error' ? 'error' : 'done';
+    const status = record ? (record.status === 'completed' ? 'done' : 'error') : stale ? 'error' : 'running';
+    const outcome = record ? (record.status === 'completed' ? null : record.status === 'failed' ? 'failed' : 'stopped') : stale ? 'stopped' : null;
     const run = {
       ...base_,
       ts: startTs,
@@ -271,9 +297,10 @@ function scanWorkflows(sessionId, mainFile) {
       phases: r.phases.length ? r.phases : ((record && record.phases) || []).map((p) => p.title || p),
       current: started.length ? started[started.length - 1].phase : null,
       agents: started.length,
-      finished: finished.size,
+      finished: finished.size + failed.size,
       status,
-      ended_at: record ? startTs + (record.durationMs || 0) : null,
+      outcome,
+      ended_at: record ? startTs + (record.durationMs || 0) : stale ? newest : null,
     };
     // per phase: how many agents it started and how many of those are done
     const byPhase = new Map(run.phases.map((t) => [t, { title: t, agents: 0, finished: 0 }]));
@@ -282,7 +309,7 @@ function scanWorkflows(sessionId, mainFile) {
       if (!byPhase.has(ph)) byPhase.set(ph, { title: ph, agents: 0, finished: 0 });
       const x = byPhase.get(ph);
       x.agents++;
-      if (finished.has(j.agentId)) x.finished++;
+      if (finished.has(j.agentId) || failed.has(j.agentId) || record || stale) x.finished++;
     }
     run.phase_stats = [...byPhase.values()];
     const sig = JSON.stringify([run.current, run.status, run.phase_stats]);
@@ -291,17 +318,20 @@ function scanWorkflows(sessionId, mainFile) {
       store.ingestAll([run]);
     }
     for (const j of started) {
+      if (late()) return;
       const file = path.join(dir, `agent-${j.agentId}.jsonl`);
       const st = stateFor(file, sessionId, mainFile, j.agentId);
       st.agentType = 'workflow-subagent';
       st.extra = { parent_agent_id: wfId, description: j.label, workflow_phase: j.phase, agent_transcript_path: file };
       parse(st, store.ingestAll);
-      if (finished.has(j.agentId) && st.started && !st.stopped) {
+      // done, failed, or left without a result by a run that is over
+      const end = finished.has(j.agentId) ? null : failed.has(j.agentId) ? 'failed' : record || stale ? 'stopped' : undefined;
+      if (end !== undefined && st.started && !st.stopped) {
         st.stopped = true;
-        store.ingestAll([{ ...base_, ...st.extra, ts: st.lastTs || Date.now(), hook_event_name: 'SubagentStop', agent_id: j.agentId, agent_type: st.agentType }]);
+        store.ingestAll([{ ...base_, ...st.extra, ts: st.lastTs || Date.now(), hook_event_name: 'SubagentStop', agent_id: j.agentId, agent_type: st.agentType, outcome: end }]);
       }
     }
-    if (record) r.done = true;
+    if (record && !backlog) r.done = true;
   }
 }
 
@@ -321,9 +351,9 @@ function scanPids() {
 
 function scan() {
   for (const { file, sessionId, mtime } of sessionFiles()) {
+    if (late()) break;
     const s = store.getSession(sessionId);
     if (s && s.via !== 'transcript') continue; // the hooks already report this one (workflows: below)
-    const first = !files.has(file);
     const main = stateFor(file, sessionId, file, null);
     const subDir = path.join(file.slice(0, -6), 'subagents');
     const run = () => {
@@ -344,13 +374,8 @@ function scan() {
         }
       }
     };
-    // a long transcript is read in one quiet pass, then the page reloads once
-    const withWorkflows = () => {
-      run();
-      scanWorkflows(sessionId, file);
-    };
-    if (first) store.quietly(withWorkflows);
-    else withWorkflows();
+    run();
+    scanWorkflows(sessionId, file);
 
     const cur = store.getSession(sessionId);
     if (!cur) continue;
@@ -364,21 +389,35 @@ function scan() {
   }
   // sessions started with claude-board: hooks may not report agents inside a workflow, read them too
   for (const s of store.listSessions()) {
+    if (backlog) break;
     if (s.via === 'transcript' || s.endedAt || !s.transcriptPath) continue;
-    if (wfSeen.has(s.id)) scanWorkflows(s.id, s.transcriptPath);
-    else {
-      wfSeen.add(s.id);
-      store.quietly(() => scanWorkflows(s.id, s.transcriptPath));
-    }
+    if (late()) break;
+    scanWorkflows(s.id, s.transcriptPath);
   }
+}
+
+// One slice. While files are still being read for the first time the slice is quiet, and the
+// page reloads once when the catch-up is over.
+let catchingUp = false;
+function tick() {
+  deadline = Date.now() + BUDGET_MS;
+  backlog = false;
+  const quiet = catchingUp || pending.size > 0 || !files.size;
+  if (quiet) store.quietly(scan, false);
+  else scan();
+  deadline = Infinity;
+  if (quiet && !backlog && !pending.size) {
+    catchingUp = false;
+    store.quietly(() => {}); // resync
+  } else if (backlog) catchingUp = catchingUp || quiet;
+  setTimeout(tick, backlog ? 10 : SCAN_MS).unref();
 }
 
 function start() {
   if (process.env.AGENT_BOARD_TRANSCRIPTS === '0') return;
   scanPids();
   setInterval(scanPids, 10000).unref();
-  setTimeout(scan, 300).unref(); // after restore(), so hook sessions are known first
-  setInterval(scan, SCAN_MS).unref();
+  setTimeout(tick, 300).unref(); // after restore(), so hook sessions are known first
 }
 
 module.exports = { start };

@@ -16,7 +16,7 @@ export function AgentCard({ agent: a, now, sessionEnded, waiting, selected, onSe
   const t = a.tokens;
   const tip = wf
     ? `workflow · ${wf.phases.join(' → ')}`
-    : `${a.phase ? `faz: ${a.phase} · ` : ''}${a.type ?? ''} · ${a.model ? modelLabel(a.model) : ''} · ${a.toolCalls} araç · input ${compact(t.input + t.cacheRead + t.cacheWrite)} · output ${compact(t.output)}`;
+    : `${a.phase ? `phase: ${a.phase} · ` : ''}${a.type ?? ''} · ${a.model ? modelLabel(a.model) : ''} · ${a.toolCalls} araç · input ${compact(t.input + t.cacheRead + t.cacheWrite)} · output ${compact(t.output)}`;
   const live = status === 'running' || status === 'waiting';
 
   return (
@@ -37,7 +37,7 @@ export function AgentCard({ agent: a, now, sessionEnded, waiting, selected, onSe
           {main ? <Network className="size-3.5" /> : wf ? <Workflow className="size-3.5" /> : <Bot className="size-3.5" />}
         </span>
         <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink" title={a.description ?? undefined}>
-          {main ? 'Orkestratör' : displayName(a)}
+          {main ? 'Orchestrator' : displayName(a)}
         </span>
         <span className="shrink-0 font-mono text-[12px] font-medium tabular-nums text-ink">{usd(rollup ? rollup.cost : a.costUsd)}</span>
       </div>
@@ -84,7 +84,7 @@ function PhaseList({ wf, runDone }: { wf: NonNullable<Agent['workflow']>; runDon
   const stats = wf.phaseStats?.length ? wf.phaseStats : wf.phases.map((title) => ({ title, agents: 0, finished: 0 }));
   const at = wf.current ? stats.findIndex((p) => p.title === wf.current) : -1;
   return (
-    <ol className="mt-2 space-y-0.5 border-t border-line pt-2 text-[12px] tabular-nums" aria-label="Fazlar">
+    <ol className="mt-2 space-y-0.5 border-t border-line pt-2 text-[12px] tabular-nums" aria-label="Phases">
       {stats.map((p, i) => {
         const state = runDone || i < at ? 'done' : i === at ? 'now' : 'next';
         return (

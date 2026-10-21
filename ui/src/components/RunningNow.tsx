@@ -38,7 +38,7 @@ export function RunningNow({ s, now, waitingBy, onSelect }: { s: Session; now: n
                       ? est.over
                         ? ` · benzerlerinden uzun sürüyor`
                         : ` · %${Math.round(est.pct * 100)} · ~${duration(est.left)} kaldı`
-                      : ' · tahmin için biten benzer agent yok'}
+                      : ` · ${a.toolCalls} araç`}
                   </span>
                 </span>
                 <span className="text-right font-mono text-[12px] tabular-nums text-ink">{usd(a.costUsd)}</span>
