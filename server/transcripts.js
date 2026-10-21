@@ -318,8 +318,10 @@ function scanWorkflows(sessionId, mainFile) {
       store.ingestAll([run]);
     }
     for (const j of started) {
-      if (late()) return;
       const file = path.join(dir, `agent-${j.agentId}.jsonl`);
+      const known = files.get(file);
+      if (known && known.stopped && known.caughtUp) continue;
+      if (late()) return;
       const st = stateFor(file, sessionId, mainFile, j.agentId);
       st.agentType = 'workflow-subagent';
       st.extra = { parent_agent_id: wfId, description: j.label, workflow_phase: j.phase, agent_transcript_path: file };
@@ -331,7 +333,12 @@ function scanWorkflows(sessionId, mainFile) {
         store.ingestAll([{ ...base_, ...st.extra, ts: st.lastTs || Date.now(), hook_event_name: 'SubagentStop', agent_id: j.agentId, agent_type: st.agentType, outcome: end }]);
       }
     }
-    if (record && !backlog) r.done = true;
+    // a finished run whose agents are all read and closed needs no more visits
+    if (record && started.every((j) => {
+      const st = files.get(path.join(dir, `agent-${j.agentId}.jsonl`));
+      return st && st.stopped && st.caughtUp;
+    }))
+      r.done = true;
   }
 }
 
@@ -349,9 +356,16 @@ function scanPids() {
   });
 }
 
+let cursor = 0; // where the last slice stopped, so every session gets its turn
 function scan() {
-  for (const { file, sessionId, mtime } of sessionFiles()) {
+  // most recently written first: live sessions show up within seconds of a restart
+  const list = sessionFiles().sort((a, b) => b.mtime - a.mtime);
+  if (cursor >= list.length) cursor = 0;
+  const order = [...list.slice(cursor), ...list.slice(0, cursor)];
+  let done = 0;
+  for (const { file, sessionId, mtime } of order) {
     if (late()) break;
+    done++;
     const s = store.getSession(sessionId);
     if (s && s.via !== 'transcript') continue; // the hooks already report this one (workflows: below)
     const main = stateFor(file, sessionId, file, null);
@@ -364,11 +378,21 @@ function scan() {
       } catch {}
       for (const n of subs) {
         const sf = path.join(subDir, n);
+        const known = files.get(sf);
+        if (known && known.stopped && known.caughtUp) continue; // finished and fully read: nothing left
+        if (late()) return;
         const st = stateFor(sf, sessionId, file, n.replace(/^agent-|\.jsonl$/g, ''));
         const meta = readMeta(sf);
         if (meta && meta.agentType) st.agentType = meta.agentType;
         parse(st, store.ingestAll);
-        if (meta && meta.finished && st.started && !st.stopped) {
+        // older Claude versions never mark a subagent finished: a long silence means it is over
+        let quiet = false;
+        if (!(meta && meta.finished)) {
+          try {
+            quiet = Date.now() - fs.statSync(sf).mtimeMs > STALE_RUN_MS;
+          } catch {}
+        }
+        if (((meta && meta.finished) || quiet) && st.started && !st.stopped && !late()) {
           st.stopped = true;
           store.ingestAll([{ session_id: sessionId, transcript_path: file, ts: st.lastTs || Date.now(), via: 'transcript', hook_event_name: 'SubagentStop', agent_id: st.agentId, agent_type: st.agentType, agent_transcript_path: sf }]);
         }
@@ -387,6 +411,7 @@ function scan() {
     }
     known.set(sessionId, { main: file });
   }
+  cursor = backlog ? (cursor + Math.max(0, done - 1)) % Math.max(1, list.length) : 0;
   // sessions started with claude-board: hooks may not report agents inside a workflow, read them too
   for (const s of store.listSessions()) {
     if (backlog) break;
