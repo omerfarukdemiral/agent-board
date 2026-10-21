@@ -14,12 +14,13 @@ export function Bar({ pct, tone = 'run', className }: { pct: number | null; tone
   );
 }
 
-// Done / running / waiting share of a whole, in one bar
-export function SplitBar({ done, running, total, className }: { done: number; running: number; total: number; className?: string }) {
+// Finished (failed shown apart) and running share of a whole, in one bar
+export function SplitBar({ done, running, failed = 0, total, className }: { done: number; running: number; failed?: number; total: number; className?: string }) {
   const w = (n: number) => `${total ? (n / total) * 100 : 0}%`;
   return (
     <span className={cn('flex h-1.5 overflow-hidden rounded-full bg-tile', className)}>
-      <span className="bg-ok transition-[width] duration-700" style={{ width: w(done) }} />
+      <span className="bg-ok transition-[width] duration-700" style={{ width: w(done - failed) }} />
+      {failed > 0 && <span className="bg-err transition-[width] duration-700" style={{ width: w(failed) }} />}
       <span className="bg-run transition-[width] duration-700" style={{ width: w(running) }} />
     </span>
   );

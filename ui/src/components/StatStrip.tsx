@@ -8,6 +8,7 @@ export function StatStrip({ s, now }: { s: Session; now: number }) {
   const ws = workers(s);
   const running = ws.filter((a) => a.status === 'running').length;
   const done = ws.filter((a) => a.status !== 'running').length;
+  const failed = ws.filter((a) => a.status === 'error' && a.outcome !== 'stopped').length;
   const runs = Object.values(s.agents)
     .filter((a) => a.workflow)
     .sort((a, b) => Number(b.status === 'running') - Number(a.status === 'running') || b.startedAt - a.startedAt);
@@ -17,8 +18,8 @@ export function StatStrip({ s, now }: { s: Session; now: number }) {
 
   return (
     <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-      <Tile label="Agents" value={ws.length ? `${done}/${ws.length}` : '—'} note={ws.length ? (running ? `${running} çalışıyor` : 'hepsi bitti') : 'subagent yok'}>
-        {ws.length > 0 && <SplitBar done={done} running={running} total={ws.length} />}
+      <Tile label="Agents" value={ws.length ? `${done}/${ws.length}` : '—'} note={ws.length ? [running && `${running} çalışıyor`, failed && `${failed} hata`].filter(Boolean).join(' · ') || 'hepsi bitti' : 'subagent yok'}>
+        {ws.length > 0 && <SplitBar done={done} running={running} failed={failed} total={ws.length} />}
       </Tile>
       {run ? (
         <WorkflowTile run={run} count={runs.length} />

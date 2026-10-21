@@ -117,7 +117,8 @@ export function runningCount(s: Session) {
   return {
     subs: subs.length,
     running: subs.filter((a) => a.status === 'running').length,
-    done: subs.filter((a) => a.status === 'done').length,
+    done: subs.filter((a) => a.status !== 'running').length,
+    failed: subs.filter((a) => a.status === 'error' && a.outcome !== 'stopped').length,
     workflows: Object.values(s.agents).filter((a) => a.type === 'workflow').length,
   };
 }

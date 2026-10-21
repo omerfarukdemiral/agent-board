@@ -43,7 +43,7 @@ export function AgentDetail({ s, id, items, now, waiting, onClose }: { s: Sessio
               <span className={cn('size-1.5 shrink-0 translate-y-[-1px] rounded-full', it.status === 'running' ? 'bg-run pulse-dot' : it.status === 'error' ? 'bg-err' : 'bg-line-strong')} />
               <span className="shrink-0 font-medium text-ink">{prettyTool(it.name || '')}</span>
               <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted" title={String(it.summary || '')}>
-                {rel(String(it.summary || ''), s.cwd)}
+                {prettyTool(rel(String(it.summary || ''), s.cwd))}
               </span>
             </li>
           ))}

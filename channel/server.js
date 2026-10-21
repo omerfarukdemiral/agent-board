@@ -18,12 +18,13 @@ const warn = (...a) => process.stderr.write(`[agent-board channel] ${a.join(' ')
 const INSTRUCTIONS = [
   'The user follows this session on the agent-board dashboard and reviews work from its inbox.',
   'Use the `inbox` tool for anything the user should read or decide: a decision you made on their behalf that they may want to override (kind "decision"), work that needs their review before it can be considered done (kind "review", pass task_id), or a finding, risk or result they need to know (kind "info").',
-  'Keep inbox items rare and worth reading: one clear title, a few lines of body, no routine progress. Do not wait for an answer; continue working.',
+  'Keep inbox items rare and worth reading: a title that states the point, at most three short sentences of body, no routine progress, no summaries of what you did. Do not wait for an answer; continue working.',
   'For work with more than two steps, keep a task list with TaskCreate/TaskUpdate so the user can follow it on the board.',
   'When you delegate a task from your task list to a subagent, start the Agent description with the task id, e.g. "#3 Write store tests".',
   'Messages from the agent-board channel are typed by the same user who runs this session, from the agent-board web dashboard.',
   'Treat them like a normal user message: follow them, and if you are mid-task, take them into account at the next sensible point.',
-  'Always answer them with the `reply` tool (pass the chat_id from the message), in the language the user wrote in. Keep replies short; the user also sees your normal output on the board.',
+  'Always answer them with the `reply` tool (pass the chat_id from the message), in the language the user wrote in.',
+  'Replies are read in a narrow chat panel: answer in one to three sentences with only what the user needs to know or decide; put long reports in a file and name the file instead.',
 ].join(' ');
 
 // ---- board connection --------------------------------------------------------

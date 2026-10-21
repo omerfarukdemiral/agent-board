@@ -2,11 +2,12 @@
 // Şimdi: what waits for you, what is working, what moved last. Project: its sessions and task board.
 // The left menu lists every project, so these pages don't repeat it.
 import { useMemo, useState } from 'react';
-import { Bot, ChevronRight, Network } from 'lucide-react';
+import { Bot, ChevronRight } from 'lucide-react';
 import { FlowBoard } from '../components/FlowBoard';
 import { ProjectInbox } from '../components/ProjectInbox';
 import { flowCards } from '../flow';
-import { ago, cn, duration, nowDoing, projectName, runningCount, sessionCost, sessionState, STATE_DOT, STATE_LABEL, usd, type SessionState } from '../lib';
+import { SplitBar } from '../components/Bars';
+import { ago, cn, duration, nowDoing, workflowProgress, projectName, runningCount, sessionCost, sessionState, STATE_DOT, STATE_LABEL, usd, type SessionState } from '../lib';
 import type { ActivityItem, ApprovalRequest, Decision, Session } from '../types';
 
 type Props = {
@@ -117,9 +118,10 @@ export function Home(p: Props) {
 
 function SessionCard({ s, st, now, waiting, project, onOpen }: { s: Session; st: SessionState; now: number; waiting: number; project?: string; onOpen: () => void }) {
   const doing = nowDoing(s, st);
-  const { subs, running } = runningCount(s);
+  const { subs, running, done: subsDone, failed } = runningCount(s);
   const tasks = Object.values(s.tasks);
   const done = tasks.filter((t) => t.status === 'completed').length;
+  const run = Object.values(s.agents).find((a) => a.workflow && a.status === 'running');
   return (
     <button
       onClick={onOpen}
@@ -140,26 +142,32 @@ function SessionCard({ s, st, now, waiting, project, onOpen }: { s: Session; st:
         <span className="mr-1.5 font-sans text-[12px] text-faint">şu an</span>
         {doing || 'düşünüyor…'}
       </p>
-      <div className="mt-3 flex items-center gap-3 text-[12px] text-muted">
-        <span className="inline-flex items-center gap-1">
-          <Network className="size-3.5" />1
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Bot className="size-3.5" />
-          {subs}
-          {running > 0 && <span className="text-run">({running} çalışıyor)</span>}
-        </span>
-        {tasks.length > 0 && (
-          <span className="inline-flex min-w-0 flex-1 items-center gap-2">
-            <span className="h-1 min-w-[40px] flex-1 overflow-hidden rounded-full bg-tile">
-              <span className="block h-full rounded-full bg-ok" style={{ width: `${(done / tasks.length) * 100}%` }} />
-            </span>
-            <span className="shrink-0 tabular-nums">
-              {done}/{tasks.length}
+      {run && (
+        <p className="mt-1 truncate text-[12px] text-muted" title={run.description ?? undefined}>
+          <span className="text-run">
+            Phase {workflowProgress(run).at}/{workflowProgress(run).total} · {run.workflow?.current}
+          </span>{' '}
+          · {run.description}
+        </p>
+      )}
+      <div className="mt-3 flex items-center gap-3 text-[12px] tabular-nums text-muted">
+        {subs > 0 ? (
+          <span className="inline-flex min-w-0 flex-1 items-center gap-2" title={`${running} çalışıyor · ${subsDone} bitti${failed ? ` (${failed} hata)` : ''}`}>
+            <Bot className="size-3.5 shrink-0" />
+            <SplitBar className="min-w-[40px] flex-1" done={subsDone} running={running} failed={failed} total={subs} />
+            <span className="shrink-0">
+              {subsDone}/{subs}
             </span>
           </span>
+        ) : (
+          <span className="flex-1 text-faint">subagent yok</span>
         )}
-        <span className="ml-auto shrink-0 tabular-nums text-ink">{usd(sessionCost(s))}</span>
+        {tasks.length > 0 && (
+          <span className="shrink-0" title="tamamlanan görev">
+            Tasks {done}/{tasks.length}
+          </span>
+        )}
+        <span className="shrink-0 text-ink">{usd(sessionCost(s))}</span>
       </div>
     </button>
   );
@@ -193,11 +201,11 @@ function SessionRow({ s, st, now, activity, project, onOpen }: { s: Session; st:
 function ProjectBoard({ scope, requests, now, onSession }: Props & { scope: Session[] }) {
   const live = scope.filter((s) => !s.endedAt);
   const sessions = live.length ? live : scope.slice(0, 1);
-  const cards = flowCards(sessions, requests.filter((r) => r.status === 'pending'));
+  const cards = flowCards(sessions, requests.filter((r) => r.status === 'pending')).filter((c) => c.kind === 'task');
   if (!cards.length) return null;
   return (
     <section>
-      <h2 className="mb-2.5 text-[13px] font-medium text-muted">Projedeki işler</h2>
+      <h2 className="mb-2.5 text-[13px] font-medium text-muted">Tasks</h2>
       <FlowBoard cards={cards} grouping="task" multiSession={sessions.length > 1} now={now} onOpen={(sid) => onSession(sid)} />
     </section>
   );

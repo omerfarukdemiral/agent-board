@@ -69,10 +69,21 @@ function readChunk(st) {
 const WANTED = /"type":"user"|"role":"assistant"/;
 const wanted = (line) => WANTED.test(line.slice(0, 600));
 
-// tool inputs are kept for the activity log and task tools; huge ones (Write contents) are cut
+// tool inputs are kept for the activity log and task tools; long fields (Write contents, heredoc
+// commands) are cut one by one so the short ones (command start, file_path) stay readable
+const FIELD_MAX = 600;
 function slim(input) {
-  const text = JSON.stringify(input || {});
-  return text.length <= INPUT_MAX ? input : { _clipped: text.slice(0, INPUT_MAX) + '…' };
+  if (!input || typeof input !== 'object') return input;
+  if (JSON.stringify(input).length <= INPUT_MAX) return input;
+  const out = {};
+  for (const [k, v] of Object.entries(input)) {
+    if (typeof v === 'string') out[k] = v.length > FIELD_MAX ? v.slice(0, FIELD_MAX) + '…' : v;
+    else {
+      const t = JSON.stringify(v);
+      out[k] = t && t.length > FIELD_MAX ? t.slice(0, FIELD_MAX) + '…' : v;
+    }
+  }
+  return out;
 }
 
 // One transcript line → zero or more hook-shaped events.
